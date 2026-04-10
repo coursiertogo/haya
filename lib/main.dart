@@ -158,7 +158,10 @@ class HomeScreen extends StatelessWidget {
                   label: 'Historique',
                   color: const Color(0xFFFAEEDA),
                   iconColor: const Color(0xFF854F0B),
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 _ActionBtn(
@@ -166,7 +169,10 @@ class HomeScreen extends StatelessWidget {
                   label: 'Profil',
                   color: const Color(0xFFF1EFE8),
                   iconColor: Colors.grey,
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  ),
                 ),
               ],
             ),
@@ -895,6 +901,667 @@ class _ReceiptRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── ÉCRAN HISTORIQUE ────────────────────────────────────
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key});
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  String _filtre = 'tout';
+
+  final List<Map<String, dynamic>> _transactions = [
+    {
+      'initiales': 'AK',
+      'nom': 'Ama Kpodo',
+      'op': 'Tmoney',
+      'date': 'Auj. 10:24',
+      'montant': '−5 000',
+      'out': true,
+    },
+    {
+      'initiales': 'YB',
+      'nom': 'Yawa Bossa',
+      'op': 'Flooz',
+      'date': 'Hier · 14:05',
+      'montant': '+20 000',
+      'out': false,
+    },
+    {
+      'initiales': 'KD',
+      'nom': 'Kofi Dossou',
+      'op': 'Tmoney',
+      'date': '5 avr.',
+      'montant': '−10 000',
+      'out': true,
+    },
+    {
+      'initiales': 'EK',
+      'nom': 'Edem Klu',
+      'op': 'Flooz',
+      'date': '3 avr.',
+      'montant': '+50 000',
+      'out': false,
+    },
+    {
+      'initiales': 'NA',
+      'nom': 'Nana Agbeko',
+      'op': 'Tmoney',
+      'date': '1 avr.',
+      'montant': '−7 500',
+      'out': true,
+    },
+    {
+      'initiales': 'PK',
+      'nom': 'Papa Kojo',
+      'op': 'Flooz',
+      'date': '29 mars',
+      'montant': '−15 000',
+      'out': true,
+    },
+  ];
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_filtre == 'tout') return _transactions;
+    if (_filtre == 'tmoney')
+      return _transactions.where((t) => t['op'] == 'Tmoney').toList();
+    if (_filtre == 'flooz')
+      return _transactions.where((t) => t['op'] == 'Flooz').toList();
+    if (_filtre == 'envois')
+      return _transactions.where((t) => t['out'] == true).toList();
+    if (_filtre == 'recus')
+      return _transactions.where((t) => t['out'] == false).toList();
+    return _transactions;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFond,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Historique',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          // Filtres
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FiltreBtn(
+                    'Tout',
+                    'tout',
+                    _filtre,
+                    (v) => setState(() => _filtre = v),
+                  ),
+                  _FiltreBtn(
+                    'Tmoney',
+                    'tmoney',
+                    _filtre,
+                    (v) => setState(() => _filtre = v),
+                  ),
+                  _FiltreBtn(
+                    'Flooz',
+                    'flooz',
+                    _filtre,
+                    (v) => setState(() => _filtre = v),
+                  ),
+                  _FiltreBtn(
+                    'Envois',
+                    'envois',
+                    _filtre,
+                    (v) => setState(() => _filtre = v),
+                  ),
+                  _FiltreBtn(
+                    'Reçus',
+                    'recus',
+                    _filtre,
+                    (v) => setState(() => _filtre = v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Stats
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                _StatCard('Total envoyé', 'FCFA 37 500', kRouge),
+                const SizedBox(width: 10),
+                _StatCard('Total reçu', 'FCFA 70 000', kVert),
+              ],
+            ),
+          ),
+          // Liste
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _filtered.length,
+              itemBuilder: (context, i) {
+                final t = _filtered[i];
+                return _TxItem(
+                  initiales: t['initiales'],
+                  nom: t['nom'],
+                  operateur: t['op'],
+                  date: t['date'],
+                  montant: t['montant'],
+                  isOut: t['out'],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FiltreBtn extends StatelessWidget {
+  final String label, value, current;
+  final Function(String) onTap;
+  const _FiltreBtn(this.label, this.value, this.current, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = value == current;
+    return GestureDetector(
+      onTap: () => onTap(value),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? kNuit : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isActive ? Colors.white : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label, valeur;
+  final Color couleur;
+  const _StatCard(this.label, this.valeur, this.couleur);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              valeur,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: couleur,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── ÉCRAN PROFIL ─────────────────────────────────────────
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFond,
+      body: Column(
+        children: [
+          Container(
+            color: kNuit,
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white24,
+                  child: const Text(
+                    'KA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Koffi Ameko',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'koffi.ameko@gmail.com',
+                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ProfilStat('47', 'Transferts'),
+                    Container(
+                      width: 1,
+                      height: 30,
+                      color: Colors.white24,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    _ProfilStat('FCFA 284K', 'Total envoyé'),
+                    Container(
+                      width: 1,
+                      height: 30,
+                      color: Colors.white24,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    _ProfilStat('12', 'Contacts'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const Text(
+                  'Informations',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ProfilRow(
+                  Icons.phone_outlined,
+                  'Téléphone',
+                  '+228 90 12 34 56',
+                ),
+                _ProfilRow(Icons.location_on_outlined, 'Pays', 'Togo / France'),
+                _ProfilRow(
+                  Icons.verified_outlined,
+                  'Compte vérifié',
+                  'Oui',
+                  valueColor: kVert,
+                ),
+                _ProfilRow(
+                  Icons.account_balance_wallet_outlined,
+                  'Mode',
+                  'Local FCFA',
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Paramètres',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ProfilRow(
+                  Icons.notifications_outlined,
+                  'Notifications',
+                  'Activées',
+                ),
+                _ProfilRow(Icons.language_outlined, 'Langue', 'Français'),
+                _ProfilRow(Icons.fingerprint_outlined, 'Sécurité', 'Biométrie'),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (r) => false,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Se déconnecter',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfilStat extends StatelessWidget {
+  final String valeur, label;
+  const _ProfilStat(this.valeur, this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          valeur,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfilRow extends StatelessWidget {
+  final IconData icon;
+  final String label, valeur;
+  final Color? valueColor;
+  const _ProfilRow(this.icon, this.label, this.valeur, {this.valueColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+          Text(
+            valeur,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: valueColor ?? Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ÉCRAN CONNEXION ──────────────────────────────────────
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isLogin = true;
+  final _phoneCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFond,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              // Logo
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: kNuit,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_upward,
+                      color: kOrange,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'haya',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                      color: kNuit,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Envoie. C\'est parti.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 40),
+              // Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isLogin = true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _isLogin ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Connexion',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: _isLogin ? kNuit : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isLogin = false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !_isLogin
+                                ? Colors.white
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Inscription',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: !_isLogin ? kNuit : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Champs
+              const Text(
+                'Numéro de téléphone',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '🇹🇬 +228',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          hintText: 'XX XX XX XX',
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Mot de passe',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: _passCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: '••••••••',
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    (r) => false,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kNuit,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    _isLogin ? 'Se connecter' : 'Créer mon compte',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  _isLogin
+                      ? 'Pas encore de compte ? Inscris-toi'
+                      : 'Déjà un compte ? Connecte-toi',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
