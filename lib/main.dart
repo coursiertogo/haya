@@ -150,25 +150,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text('Bonjour, Koffi 👋',
                     style: TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(_soldeVisible ? '125 000' : '••••••',
-                        style: const TextStyle(color: Colors.white, fontSize: 40,
-                            fontWeight: FontWeight.w600, letterSpacing: -1.5)),
-                    const SizedBox(width: 8),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 6),
-                      child: Text('FCFA', style: TextStyle(color: Colors.white60,
-                          fontSize: 16, fontWeight: FontWeight.w400)),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => setState(() => _soldeVisible = !_soldeVisible),
-                      child: Icon(_soldeVisible ? Icons.visibility : Icons.visibility_off,
-                          color: Colors.white54, size: 22),
-                    ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.lock_outline, color: Colors.white54, size: 18),
+                      SizedBox(width: 10),
+                      const Text(
+                        'Connectez votre compte pour voir votre solde',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
                 const Text('Togo · Mode local',
                     style: TextStyle(color: Colors.white38, fontSize: 12)),
