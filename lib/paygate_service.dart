@@ -5,6 +5,9 @@ class PayGateService {
   static const String _baseUrl = 'https://paygateglobal.com/api/v2';
   static const String _token = '0dcfd34f-7066-4224-a726-0a73a75e826c';
 
+  // ⚠️ MODE DÉMO — mettre à false quand PayGate est activé en Production
+  static const bool _modeDemo = true;
+
   // Initier un paiement
   static Future<Map<String, dynamic>> initierPaiement({
     required String telephone,
@@ -12,6 +15,16 @@ class PayGateService {
     required String reseau, // 'flooz' ou 'tmoney'
     required String reference,
   }) async {
+    // Mode démo — simule un succès sans appeler PayGate
+    if (_modeDemo) {
+      await Future.delayed(const Duration(seconds: 2)); // Simule le délai réseau
+      return {
+        'success': true,
+        'reference': reference,
+        'message': 'Paiement simulé (mode démo)',
+      };
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/pay'),
@@ -51,6 +64,10 @@ class PayGateService {
   static Future<Map<String, dynamic>> verifierStatut({
     required String reference,
   }) async {
+    if (_modeDemo) {
+      return {'success': true, 'statut': 'completed', 'message': 'Mode démo'};
+    }
+
     try {
       final response = await http.get(
         Uri.parse(
