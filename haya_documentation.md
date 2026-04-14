@@ -319,3 +319,89 @@ flutter_launcher_icons:
 - **Account-ID Play** : 7702579219557169401
 - **Pays** : Pays-Bas
 
+
+---
+
+## 🏪 FICHE GOOGLE PLAY STORE
+
+### Titre
+```
+Haya - Transferts Mobile Togo
+```
+
+### Description courte (80 caractères)
+```
+Envoie de l'argent vers Tmoney et Flooz au Togo. Intelligent et rapide !
+```
+
+### Description longue — Français
+```
+Haya — La première app qui combine Tmoney et Flooz en une seule opération !
+
+💡 LE PROBLÈME QU'ON RÉSOUT
+Tu veux envoyer 10 000 FCFA mais tu as 3 000 F sur Flooz et 8 000 F sur Tmoney ?
+Avec Haya, c'est une seule opération — Haya répartit automatiquement entre tes deux comptes !
+
+🚀 CE QUI REND HAYA UNIQUE
+✅ Smart Transfer — combine Tmoney + Flooz automatiquement en une seule opération
+✅ Détection automatique de l'opérateur selon le numéro du bénéficiaire
+✅ QR code personnel pour recevoir de l'argent
+✅ Frais transparents affichés avant confirmation
+✅ Historique complet de toutes tes transactions
+✅ Interface simple, rapide et intuitive
+
+👥 POUR QUI ?
+— La diaspora togolaise en Europe
+— Les familles au Togo
+— Les entrepreneurs locaux
+
+🔒 SÉCURITÉ
+Tous les transferts sont sécurisés par PayGate Global, agréé au Togo.
+
+Envoie. C'est parti. 🇹🇬
+```
+
+### Description longue — Anglais
+```
+Haya — The first app combining Tmoney and Flooz in a single transfer!
+
+💡 THE PROBLEM WE SOLVE
+Want to send 10,000 FCFA but have 3,000 F on Flooz and 8,000 F on Tmoney?
+With Haya, it's one single operation — Haya automatically splits between your two accounts!
+
+🚀 WHAT MAKES HAYA UNIQUE
+✅ Smart Transfer — automatically combines Tmoney + Flooz in one operation
+✅ Automatic operator detection by phone number
+✅ Personal QR code to receive money
+✅ Transparent fees shown before confirmation
+✅ Complete transaction history
+✅ Simple, fast and intuitive interface
+
+👥 FOR WHO?
+— Togolese diaspora in Europe
+— Families in Togo
+— Local entrepreneurs
+
+🔒 SECURITY
+All transfers secured by PayGate Global, certified in Togo.
+
+Send. Let's go. 🇹🇬
+```
+
+### Mots-clés
+```
+transfert argent togo, tmoney, flooz, mobile money,
+haya, diaspora togo, paygate, mixx by yas,
+moov africa, envoyer argent afrique
+```
+
+### Catégorie
+```
+Finance
+```
+
+### Politique de confidentialité
+```
+https://coursiertogo.github.io/haya-privacy/privacy_policy.html
+```
+
