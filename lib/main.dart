@@ -54,6 +54,26 @@ String detectOperateur(String numero) {
   return 'inconnu';
 }
 
+// ─── MODÈLE CONTACT ──────────────────────────────────────
+class Contact {
+  final String nom;
+  final String numero;
+  final String operateur;
+  final int colorIndex;
+
+  Contact({required this.nom, required this.numero, required this.operateur, required this.colorIndex});
+}
+
+// ─── GESTIONNAIRE CONTACTS (partagé entre écrans) ─────────
+class ContactsManager {
+  static final List<Contact> contacts = [
+    Contact(nom: 'Ama Kpodo', numero: '90123456', operateur: 'tmoney', colorIndex: 0),
+    Contact(nom: 'Yawa Bossa', numero: '94567890', operateur: 'flooz', colorIndex: 1),
+    Contact(nom: 'Kofi Dossou', numero: '91234567', operateur: 'tmoney', colorIndex: 4),
+    Contact(nom: 'Edem Klu', numero: '97654321', operateur: 'flooz', colorIndex: 5),
+  ];
+}
+
 // ─── ÉCRAN PRINCIPAL AVEC NAVIGATION ─────────────────────
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -103,8 +123,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _soldeVisible = true;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -126,18 +144,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 34, height: 34,
-                          decoration: BoxDecoration(color: kOrange, borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.arrow_upward, color: Colors.white, size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                        const Text('haya', style: TextStyle(color: Colors.white, fontSize: 22,
-                            fontWeight: FontWeight.w500, letterSpacing: -0.5)),
-                      ],
-                    ),
+                    Row(children: [
+                      Container(
+                        width: 34, height: 34,
+                        decoration: BoxDecoration(color: kOrange, borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.arrow_upward, color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('haya', style: TextStyle(color: Colors.white, fontSize: 22,
+                          fontWeight: FontWeight.w500, letterSpacing: -0.5)),
+                    ]),
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: kOrange.withOpacity(0.3),
@@ -147,70 +163,132 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                const Text('Bonjour, Koffi 👋',
-                    style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const Text('Bonjour, Koffi 👋', style: TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.lock_outline, color: Colors.white54, size: 18),
-                      SizedBox(width: 10),
-                      Text(
-                        'Connectez votre compte pour voir votre solde',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
+                    color: Colors.white12, borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24)),
+                  child: const Row(children: [
+                    Icon(Icons.lock_outline, color: Colors.white54, size: 18),
+                    SizedBox(width: 10),
+                    Text('Connectez votre compte pour voir votre solde',
+                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  ]),
                 ),
-                const Text('Togo · Mode local',
-                    style: TextStyle(color: Colors.white38, fontSize: 12)),
+                const Text('Togo · Mode local', style: TextStyle(color: Colors.white38, fontSize: 12)),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                  decoration: BoxDecoration(
-                      color: Colors.white12, borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(14)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _CompactAction(icon: Icons.arrow_outward, label: 'Envoyer',
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const SendScreen()))),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SendScreen()))),
                       _VertDivider(),
                       _CompactAction(icon: Icons.arrow_downward, label: 'Recevoir',
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const ReceiveScreen()))),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiveScreen()))),
                       _VertDivider(),
                       _CompactAction(icon: Icons.history, label: 'Historique',
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const HistoryScreen()))),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()))),
                       _VertDivider(),
                       _CompactAction(icon: Icons.person_outline, label: 'Profil',
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const ProfileScreen()))),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()))),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+
+          // Contacts favoris
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Contacts favoris',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87)),
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ContactsScreen())).then((_) => setState(() {})),
+                  child: const Text('Gérer', style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 90,
+            child: ContactsManager.contacts.isEmpty
+                ? Center(
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const ContactsScreen())).then((_) => setState(() {})),
+                      child: const Text('+ Ajouter un contact favori',
+                          style: TextStyle(color: kOrange, fontSize: 13)),
+                    ))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: ContactsManager.contacts.length + 1,
+                    itemBuilder: (context, i) {
+                      if (i == ContactsManager.contacts.length) {
+                        return GestureDetector(
+                          onTap: () => Navigator.push(context,
+                              MaterialPageRoute(builder: (_) => const ContactsScreen())).then((_) => setState(() {})),
+                          child: Container(
+                            width: 60, margin: const EdgeInsets.only(right: 12),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Container(
+                                width: 48, height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid)),
+                                child: const Icon(Icons.add, color: Colors.grey, size: 22),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text('Ajouter', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            ]),
+                          ),
+                        );
+                      }
+                      final c = ContactsManager.contacts[i];
+                      final initiales = c.nom.split(' ').map((e) => e[0]).take(2).join();
+                      final bgColor = avatarColors[c.colorIndex % avatarColors.length];
+                      final textColor = avatarTextColors[c.colorIndex % avatarTextColors.length];
+                      return GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => SendScreen(numeroInitial: c.numero))),
+                        child: Container(
+                          width: 60, margin: const EdgeInsets.only(right: 12),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            CircleAvatar(radius: 24, backgroundColor: bgColor,
+                                child: Text(initiales, style: TextStyle(fontSize: 13,
+                                    fontWeight: FontWeight.w600, color: textColor))),
+                            const SizedBox(height: 4),
+                            Text(c.nom.split(' ')[0], style: const TextStyle(fontSize: 11, color: Colors.black87),
+                                overflow: TextOverflow.ellipsis),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+
+          // Transactions récentes
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Transactions récentes',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87)),
                 GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const HistoryScreen())),
-                  child: const Text('Voir tout',
-                      style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500)),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
+                  child: const Text('Voir tout', style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),
@@ -238,6 +316,230 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// ─── ÉCRAN CONTACTS FAVORIS ──────────────────────────────
+class ContactsScreen extends StatefulWidget {
+  const ContactsScreen({super.key});
+  @override
+  State<ContactsScreen> createState() => _ContactsScreenState();
+}
+
+class _ContactsScreenState extends State<ContactsScreen> {
+  void _ajouterContact() {
+    final nomCtrl = TextEditingController();
+    final numCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final operateur = numCtrl.text.length >= 2 ? detectOperateur(numCtrl.text) : '';
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 24),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Nouveau contact', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: kNuit)),
+              const SizedBox(height: 20),
+              const Text('Nom complet', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                child: TextField(controller: nomCtrl,
+                    style: const TextStyle(fontSize: 15),
+                    decoration: const InputDecoration(hintText: 'Ex: Ama Kpodo',
+                        border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14))),
+              ),
+              const SizedBox(height: 16),
+              const Text('Numéro de téléphone', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('🇹🇬 +228', style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500))),
+                  Expanded(child: TextField(
+                    controller: numCtrl,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 8,
+                    style: const TextStyle(fontSize: 15),
+                    decoration: const InputDecoration(hintText: 'XX XX XX XX',
+                        border: InputBorder.none, counterText: ''),
+                    onChanged: (_) => setModalState(() {}),
+                  )),
+                ]),
+              ),
+              if (operateur == 'tmoney')
+                Padding(padding: const EdgeInsets.only(top: 8),
+                    child: Text('✓ Tmoney (Mixx by Yas)', style: TextStyle(color: kNuit.withOpacity(0.7), fontSize: 12))),
+              if (operateur == 'flooz')
+                Padding(padding: const EdgeInsets.only(top: 8),
+                    child: Text('✓ Flooz (Moov Africa)', style: TextStyle(color: const Color(0xFF854F0B).withOpacity(0.8), fontSize: 12))),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity, height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (nomCtrl.text.isNotEmpty && numCtrl.text.length == 8 &&
+                        (operateur == 'tmoney' || operateur == 'flooz')) {
+                      setState(() {
+                        ContactsManager.contacts.add(Contact(
+                          nom: nomCtrl.text,
+                          numero: numCtrl.text,
+                          operateur: operateur,
+                          colorIndex: ContactsManager.contacts.length % avatarColors.length,
+                        ));
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: kNuit,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('Ajouter le contact',
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
+  void _supprimerContact(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Supprimer le contact ?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        content: Text('Voulez-vous supprimer ${ContactsManager.contacts[index].nom} de vos favoris ?',
+            style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () {
+              setState(() => ContactsManager.contacts.removeAt(index));
+              Navigator.pop(context);
+            },
+            child: const Text('Supprimer', style: TextStyle(color: kRouge)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFond,
+      appBar: AppBar(
+        backgroundColor: kNuit, elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Contacts favoris',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add_outlined, color: Colors.white),
+            onPressed: _ajouterContact,
+          ),
+        ],
+      ),
+      body: ContactsManager.contacts.isEmpty
+          ? Center(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.people_outline, color: Colors.grey.shade300, size: 64),
+                const SizedBox(height: 16),
+                const Text('Aucun contact favori', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                const SizedBox(height: 8),
+                const Text('Ajoutez vos proches pour envoyer\nde l\'argent plus rapidement',
+                    style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _ajouterContact,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Ajouter un contact'),
+                  style: ElevatedButton.styleFrom(backgroundColor: kNuit, foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ]))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: ContactsManager.contacts.length,
+              itemBuilder: (context, i) {
+                final c = ContactsManager.contacts[i];
+                final initiales = c.nom.split(' ').map((e) => e[0]).take(2).join();
+                final bgColor = avatarColors[c.colorIndex % avatarColors.length];
+                final textColor = avatarTextColors[c.colorIndex % avatarTextColors.length];
+                final isTmoney = c.operateur == 'tmoney';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade100)),
+                  child: Row(children: [
+                    CircleAvatar(radius: 24, backgroundColor: bgColor,
+                        child: Text(initiales, style: TextStyle(fontSize: 13,
+                            fontWeight: FontWeight.w600, color: textColor))),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(c.nom, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 3),
+                      Row(children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isTmoney ? const Color(0xFFEEEDFE) : const Color(0xFFFAEEDA),
+                            borderRadius: BorderRadius.circular(4)),
+                          child: Text(isTmoney ? 'Tmoney' : 'Flooz',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500,
+                                  color: isTmoney ? kNuit : const Color(0xFF854F0B))),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('+228 ${c.numero}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      ]),
+                    ])),
+                    // Bouton envoyer direct
+                    GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => SendScreen(numeroInitial: c.numero))),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: kOrange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.send_outlined, color: kOrange, size: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Bouton supprimer
+                    GestureDetector(
+                      onTap: () => _supprimerContact(i),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: kRouge.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.delete_outline, color: kRouge, size: 20),
+                      ),
+                    ),
+                  ]),
+                );
+              },
+            ),
+      floatingActionButton: ContactsManager.contacts.isNotEmpty
+          ? FloatingActionButton(
+              onPressed: _ajouterContact,
+              backgroundColor: kOrange,
+              child: const Icon(Icons.person_add_outlined, color: Colors.white),
+            )
+          : null,
+    );
+  }
+}
+
 class _VertDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
@@ -254,14 +556,11 @@ class _CompactAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: kOrange, size: 22),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-        ],
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: kOrange, size: 22),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+      ]),
     );
   }
 }
@@ -281,35 +580,30 @@ class _TxItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 22, backgroundColor: bgColor,
-              child: Text(initiales, style: TextStyle(fontSize: 12,
-                  fontWeight: FontWeight.w600, color: textColor))),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(nom, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 3),
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isTmoney ? const Color(0xFFEEEDFE) : const Color(0xFFFAEEDA),
-                    borderRadius: BorderRadius.circular(4)),
-                  child: Text(operateur, style: TextStyle(fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                      color: isTmoney ? kNuit : const Color(0xFF854F0B))),
-                ),
-                const SizedBox(width: 6),
-                Text(date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ]),
-            ]),
-          ),
-          Text(montant, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500,
-              color: isOut ? kRouge : kVert)),
-        ],
-      ),
+      child: Row(children: [
+        CircleAvatar(radius: 22, backgroundColor: bgColor,
+            child: Text(initiales, style: TextStyle(fontSize: 12,
+                fontWeight: FontWeight.w600, color: textColor))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(nom, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 3),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: isTmoney ? const Color(0xFFEEEDFE) : const Color(0xFFFAEEDA),
+                borderRadius: BorderRadius.circular(4)),
+              child: Text(operateur, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500,
+                  color: isTmoney ? kNuit : const Color(0xFF854F0B))),
+            ),
+            const SizedBox(width: 6),
+            Text(date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ]),
+        ])),
+        Text(montant, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500,
+            color: isOut ? kRouge : kVert)),
+      ]),
     );
   }
 }
@@ -327,16 +621,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   final String _numeroFlooz = '94123456';
   final String _nomUtilisateur = 'Koffi Ameko';
 
-  String get _numeroCourant =>
-      _operateurSelectionne == 'tmoney' ? _numeroTmoney : _numeroFlooz;
-  String get _nomOperateur =>
-      _operateurSelectionne == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
+  String get _numeroCourant => _operateurSelectionne == 'tmoney' ? _numeroTmoney : _numeroFlooz;
+  String get _nomOperateur => _operateurSelectionne == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
 
   void _copierNumero(BuildContext context) {
     Clipboard.setData(ClipboardData(text: '+228 $_numeroCourant'));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('Numéro copié !'),
-      backgroundColor: kVert,
+      content: const Text('Numéro copié !'), backgroundColor: kVert,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       duration: const Duration(seconds: 2),
@@ -348,8 +639,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     Clipboard.setData(ClipboardData(text: message));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: const Text('Message de partage copié ! Colle-le dans WhatsApp.'),
-      backgroundColor: kNuit,
-      behavior: SnackBarBehavior.floating,
+      backgroundColor: kNuit, behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       duration: const Duration(seconds: 3),
     ));
@@ -361,10 +651,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       backgroundColor: kFond,
       appBar: AppBar(
         backgroundColor: kNuit, elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context)),
         title: const Text('Recevoir de l\'argent',
             style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
       ),
@@ -507,15 +795,25 @@ class _QRCodePainter extends CustomPainter {
 
 // ─── ÉCRAN ENVOI ─────────────────────────────────────────
 class SendScreen extends StatefulWidget {
-  const SendScreen({super.key});
+  final String? numeroInitial;
+  const SendScreen({super.key, this.numeroInitial});
   @override
   State<SendScreen> createState() => _SendScreenState();
 }
 
 class _SendScreenState extends State<SendScreen> {
-  final _phoneCtrl = TextEditingController();
+  late final TextEditingController _phoneCtrl;
   final _amountCtrl = TextEditingController();
   String _operateur = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneCtrl = TextEditingController(text: widget.numeroInitial ?? '');
+    if (widget.numeroInitial != null) {
+      _operateur = detectOperateur(widget.numeroInitial!);
+    }
+  }
 
   int get _montant => int.tryParse(_amountCtrl.text) ?? 0;
   int get _frais => _montant > 0 ? (_montant * 0.025).round() : 0;
@@ -534,6 +832,14 @@ class _SendScreenState extends State<SendScreen> {
         backgroundColor: kNuit, elevation: 0, automaticallyImplyLeading: false,
         title: const Text('Envoyer de l\'argent',
             style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people_outline, color: Colors.white),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ContactsScreen())),
+            tooltip: 'Contacts favoris',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -689,51 +995,160 @@ class _FeeRow extends StatelessWidget {
 }
 
 // ─── ÉCRAN SUCCÈS ─────────────────────────────────────────
-class SuccessScreen extends StatelessWidget {
+class SuccessScreen extends StatefulWidget {
   final int montant, frais;
   final String numero, operateur;
   const SuccessScreen({super.key, required this.montant, required this.numero,
       required this.operateur, required this.frais});
 
   @override
+  State<SuccessScreen> createState() => _SuccessScreenState();
+}
+
+class _SuccessScreenState extends State<SuccessScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+  late String _ref;
+
+  @override
+  void initState() {
+    super.initState();
+    _ref = 'TG-\${(10000 + DateTime.now().millisecond * 9).toString()}';
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _ctrl.forward();
+    HapticFeedback.heavyImpact();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _afficherNotificationInApp();
+    });
+  }
+
+  void _afficherNotificationInApp() {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 16, right: 16,
+        child: _NotificationBanner(
+          montant: widget.montant,
+          numero: widget.numero,
+          operateur: widget.operateur,
+          onDismiss: () => entry.remove(),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 4), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
+  void _partagerRecu() {
+    final message = 'Transfert Haya confirme !\n\n'
+        'Montant : FCFA \${widget.montant}\n'
+        'Vers : +228 \${widget.numero}\n'
+        'Operateur : \${widget.operateur}\n'
+        'Reference : #\$_ref\n'
+        'Frais : FCFA \${widget.frais}\n'
+        'Statut : Complete\n\n'
+        'Envoye via Haya - Togo';
+    Clipboard.setData(ClipboardData(text: message));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text('Recu copie ! Colle-le dans WhatsApp.'),
+      backgroundColor: kVert, behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime d) {
+    const mois = ['jan', 'fev', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sep', 'oct', 'nov', 'dec'];
+    return '\${d.day} \${mois[d.month - 1]}. \${d.year} \${d.hour.toString().padLeft(2, "0")}h\${d.minute.toString().padLeft(2, "0")}';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ref = 'TG-${(10000 + DateTime.now().millisecond * 9).toString()}';
     return Scaffold(
       backgroundColor: kFond,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 72, height: 72,
-                decoration: const BoxDecoration(color: Color(0xFFE7F6EF), shape: BoxShape.circle),
-                child: const Icon(Icons.check_circle_outline, color: kVert, size: 40)),
-            const SizedBox(height: 18),
-            const Text('Transfert envoyé !', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Text('FCFA $montant', style: const TextStyle(fontSize: 34,
-                fontWeight: FontWeight.w500, letterSpacing: -1, color: kNuit)),
-            const SizedBox(height: 6),
-            Text('Vers $numero · $operateur', style: const TextStyle(fontSize: 13, color: Colors.grey),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity, padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(14)),
+            ScaleTransition(
+              scale: _scaleAnim,
+              child: Container(width: 80, height: 80,
+                  decoration: const BoxDecoration(color: Color(0xFFE7F6EF), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle, color: kVert, size: 48)),
+            ),
+            const SizedBox(height: 20),
+            FadeTransition(
+              opacity: _fadeAnim,
               child: Column(children: [
-                _ReceiptRow('Opérateur', operateur),
-                _ReceiptRow('Numéro', '+228 $numero'),
-                _ReceiptRow('Référence', '#$ref'),
-                _ReceiptRow('Frais', 'FCFA $frais'),
-                _ReceiptRow('Statut', 'Complété ✓', valueColor: kVert),
+                const Text('Transfert envoye !',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                Text('FCFA \${widget.montant}', style: const TextStyle(fontSize: 36,
+                    fontWeight: FontWeight.w600, letterSpacing: -1, color: kNuit)),
+                const SizedBox(height: 6),
+                Text('Vers +228 \${widget.numero} · \${widget.operateur}',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    textAlign: TextAlign.center),
               ]),
             ),
             const SizedBox(height: 24),
+            Container(
+              width: double.infinity, padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade100),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+              ),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Recu de transfert', style: TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w500, color: kNuit)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFE7F6EF), borderRadius: BorderRadius.circular(20)),
+                    child: const Text('Complete', style: TextStyle(fontSize: 11,
+                        color: kVert, fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+                const Divider(height: 20),
+                _ReceiptRow('Operateur', widget.operateur),
+                _ReceiptRow('Numero', '+228 \${widget.numero}'),
+                _ReceiptRow('Reference', '#\$_ref'),
+                _ReceiptRow('Montant', 'FCFA \${widget.montant}'),
+                _ReceiptRow('Frais', 'FCFA \${widget.frais}'),
+                _ReceiptRow('Date', _formatDate(DateTime.now())),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _partagerRecu,
+                  icon: const Icon(Icons.share_outlined, size: 18, color: kOrange),
+                  label: const Text('Partager le recu',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kOrange)),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                )),
+            const SizedBox(height: 10),
             SizedBox(width: double.infinity, height: 52,
                 child: ElevatedButton(
                   onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                   style: ElevatedButton.styleFrom(backgroundColor: kNuit,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Retour à l\'accueil',
+                  child: const Text("Retour a l'accueil",
                       style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
                 )),
           ]),
@@ -742,6 +1157,78 @@ class SuccessScreen extends StatelessWidget {
     );
   }
 }
+
+// --- BANNER NOTIFICATION IN-APP ---
+class _NotificationBanner extends StatefulWidget {
+  final int montant;
+  final String numero, operateur;
+  final VoidCallback onDismiss;
+  const _NotificationBanner({required this.montant, required this.numero,
+      required this.operateur, required this.onDismiss});
+
+  @override
+  State<_NotificationBanner> createState() => _NotificationBannerState();
+}
+
+class _NotificationBannerState extends State<_NotificationBanner>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, -1.5), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnim,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: kNuit,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kOrange.withOpacity(0.3)),
+          ),
+          child: Row(children: [
+            Container(width: 40, height: 40,
+                decoration: const BoxDecoration(color: Color(0xFFE7F6EF), shape: BoxShape.circle),
+                child: const Icon(Icons.check_circle, color: kVert, size: 24)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Transfert confirme',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text('FCFA \${widget.montant} vers +228 \${widget.numero}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              Text(widget.operateur,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            ])),
+            GestureDetector(
+              onTap: widget.onDismiss,
+              child: const Icon(Icons.close, color: Colors.white38, size: 18),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _ReceiptRow extends StatelessWidget {
   final String label, value;
@@ -789,21 +1276,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   List<Map<String, dynamic>> get _filtered {
     var liste = _transactions.where((t) {
-      // Filtre opérateur/type
       if (_filtre == 'tmoney' && t['op'] != 'Tmoney') return false;
       if (_filtre == 'flooz' && t['op'] != 'Flooz') return false;
       if (_filtre == 'envois' && t['out'] != true) return false;
       if (_filtre == 'recus' && t['out'] != false) return false;
-      // Filtre par nom
       if (_rechercheNom.isNotEmpty) {
         if (!t['nom'].toString().toLowerCase().contains(_rechercheNom.toLowerCase())) return false;
       }
-      // Filtre par montant exact
       if (_rechercheMontant.isNotEmpty) {
         final montantRecherche = int.tryParse(_rechercheMontant.replaceAll(' ', ''));
         if (montantRecherche != null && t['montantVal'] != montantRecherche) return false;
       }
-      // Filtre par date
       if (_dateDebut != null) {
         final dateT = t['dateVal'] as DateTime;
         if (dateT.isBefore(_dateDebut!)) return false;
@@ -815,7 +1298,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return true;
     }).toList();
 
-    // Tri
     if (_triPar == 'nom') {
       liste.sort((a, b) => a['nom'].toString().compareTo(b['nom'].toString()));
     } else if (_triPar == 'montant') {
@@ -834,27 +1316,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: kNuit, onPrimary: Colors.white),
-        ),
+            colorScheme: const ColorScheme.light(primary: kNuit, onPrimary: Colors.white)),
         child: child!,
       ),
     );
-    if (date != null) {
-      setState(() {
-        if (isDebut) _dateDebut = date;
-        else _dateFin = date;
-      });
-    }
+    if (date != null) setState(() { if (isDebut) _dateDebut = date; else _dateFin = date; });
   }
 
   void _reinitialiser() {
     setState(() {
-      _rechercheNom = '';
-      _rechercheMontant = '';
-      _dateDebut = null;
-      _dateFin = null;
-      _nomCtrl.clear();
-      _montantCtrl.clear();
+      _rechercheNom = ''; _rechercheMontant = '';
+      _dateDebut = null; _dateFin = null;
+      _nomCtrl.clear(); _montantCtrl.clear();
     });
   }
 
@@ -863,13 +1336,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final hasFilters = _rechercheNom.isNotEmpty || _rechercheMontant.isNotEmpty || _dateDebut != null || _dateFin != null;
-
     return Scaffold(
       backgroundColor: kFond,
       appBar: AppBar(
         backgroundColor: kNuit, elevation: 0, automaticallyImplyLeading: false,
-        title: const Text('Activité', style: TextStyle(color: Colors.white,
-            fontSize: 16, fontWeight: FontWeight.w500)),
+        title: const Text('Activité', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
         actions: [
           if (hasFilters)
             TextButton.icon(
@@ -880,7 +1351,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       body: Column(children: [
-        // Filtres opérateur
         Container(
           color: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -895,7 +1365,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ]),
           ),
         ),
-        // Trier par
         Container(
           color: kFond,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -908,11 +1377,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const SizedBox(width: 6),
             _TriBtn('Nom', 'nom', _triPar, (v) => setState(() => _triPar = v)),
             const Spacer(),
-            Text('${_filtered.length} résultat(s)',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text('${_filtered.length} résultat(s)', style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ]),
         ),
-        // Zone de recherche dynamique selon le tri
         Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -926,8 +1393,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                     prefixIcon: const Icon(Icons.person_search, color: Colors.grey, size: 20),
                     suffixIcon: _rechercheNom.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                        ? IconButton(icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
                             onPressed: () => setState(() { _rechercheNom = ''; _nomCtrl.clear(); }))
                         : null,
                     filled: true, fillColor: Colors.grey.shade100,
@@ -946,8 +1412,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                         prefixIcon: const Icon(Icons.monetization_on_outlined, color: Colors.grey, size: 20),
                         suffixIcon: _rechercheMontant.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                            ? IconButton(icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
                                 onPressed: () => setState(() { _rechercheMontant = ''; _montantCtrl.clear(); }))
                             : null,
                         filled: true, fillColor: Colors.grey.shade100,
@@ -955,72 +1420,42 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
                     )
-                  : Column(children: [
-                      // Date De
-                      Row(children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _choisirDate(context, true),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(children: [
-                                Icon(Icons.calendar_today_outlined, size: 16,
-                                    color: _dateDebut != null ? kNuit : Colors.grey),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _dateDebut != null ? 'De : ${_formatDate(_dateDebut!)}' : 'Date de début',
-                                  style: TextStyle(fontSize: 13,
-                                      color: _dateDebut != null ? kNuit : Colors.grey),
-                                ),
-                                if (_dateDebut != null) ...[
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: () => setState(() => _dateDebut = null),
-                                    child: const Icon(Icons.clear, size: 16, color: Colors.grey),
-                                  ),
-                                ],
-                              ]),
-                            ),
-                          ),
+                  : Row(children: [
+                      Expanded(child: GestureDetector(
+                        onTap: () => _choisirDate(context, true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            Icon(Icons.calendar_today_outlined, size: 16, color: _dateDebut != null ? kNuit : Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(_dateDebut != null ? 'De : ${_formatDate(_dateDebut!)}' : 'Date de début',
+                                style: TextStyle(fontSize: 13, color: _dateDebut != null ? kNuit : Colors.grey)),
+                            if (_dateDebut != null) ...[const Spacer(),
+                              GestureDetector(onTap: () => setState(() => _dateDebut = null),
+                                  child: const Icon(Icons.clear, size: 16, color: Colors.grey))],
+                          ]),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _choisirDate(context, false),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(children: [
-                                Icon(Icons.calendar_today_outlined, size: 16,
-                                    color: _dateFin != null ? kNuit : Colors.grey),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _dateFin != null ? 'À : ${_formatDate(_dateFin!)}' : 'Date de fin',
-                                  style: TextStyle(fontSize: 13,
-                                      color: _dateFin != null ? kNuit : Colors.grey),
-                                ),
-                                if (_dateFin != null) ...[
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: () => setState(() => _dateFin = null),
-                                    child: const Icon(Icons.clear, size: 16, color: Colors.grey),
-                                  ),
-                                ],
-                              ]),
-                            ),
-                          ),
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(child: GestureDetector(
+                        onTap: () => _choisirDate(context, false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            Icon(Icons.calendar_today_outlined, size: 16, color: _dateFin != null ? kNuit : Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(_dateFin != null ? 'À : ${_formatDate(_dateFin!)}' : 'Date de fin',
+                                style: TextStyle(fontSize: 13, color: _dateFin != null ? kNuit : Colors.grey)),
+                            if (_dateFin != null) ...[const Spacer(),
+                              GestureDetector(onTap: () => setState(() => _dateFin = null),
+                                  child: const Icon(Icons.clear, size: 16, color: Colors.grey))],
+                          ]),
                         ),
-                      ]),
+                      )),
                     ]),
         ),
-        // Stats
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(children: [
@@ -1029,20 +1464,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
             _StatCard('Total reçu', 'FCFA 70 000', kVert),
           ]),
         ),
-        // Liste
         Expanded(
           child: _filtered.isEmpty
-              ? Center(
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.search_off, color: Colors.grey.shade300, size: 48),
-                    const SizedBox(height: 12),
-                    const Text('Aucun résultat trouvé',
-                        style: TextStyle(color: Colors.grey, fontSize: 14)),
-                    const SizedBox(height: 6),
-                    TextButton(onPressed: _reinitialiser,
-                        child: const Text('Réinitialiser les filtres', style: TextStyle(color: kOrange))),
-                  ]),
-                )
+              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.search_off, color: Colors.grey.shade300, size: 48),
+                  const SizedBox(height: 12),
+                  const Text('Aucun résultat trouvé', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  const SizedBox(height: 6),
+                  TextButton(onPressed: _reinitialiser,
+                      child: const Text('Réinitialiser les filtres', style: TextStyle(color: kOrange))),
+                ]))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: _filtered.length,
@@ -1051,8 +1482,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     return _TxItem(initiales: t['initiales'], nom: t['nom'],
                         operateur: t['op'], date: t['date'],
                         montant: t['montant'], isOut: t['out'], colorIndex: t['ci'] ?? 0);
-                  },
-                ),
+                  }),
         ),
       ]),
     );
@@ -1143,42 +1573,54 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
           child: Column(children: [
             CircleAvatar(radius: 38, backgroundColor: kOrange.withOpacity(0.8),
-                child: const Text('KA', style: TextStyle(color: Colors.white,
-                    fontSize: 24, fontWeight: FontWeight.w600))),
+                child: const Text('KA', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
             const SizedBox(height: 14),
-            const Text('Koffi Ameko', style: TextStyle(color: Colors.white,
-                fontSize: 20, fontWeight: FontWeight.w500)),
+            const Text('Koffi Ameko', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
             const SizedBox(height: 5),
-            const Text('koffi.ameko@gmail.com',
-                style: TextStyle(color: Colors.white54, fontSize: 14)),
+            const Text('koffi.ameko@gmail.com', style: TextStyle(color: Colors.white54, fontSize: 14)),
             const SizedBox(height: 18),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _ProfilStat('47', 'Transferts'),
-              Container(width: 1, height: 30, color: Colors.white24,
-                  margin: const EdgeInsets.symmetric(horizontal: 20)),
+              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 20)),
               _ProfilStat('FCFA 284K', 'Total envoyé'),
-              Container(width: 1, height: 30, color: Colors.white24,
-                  margin: const EdgeInsets.symmetric(horizontal: 20)),
-              _ProfilStat('12', 'Contacts'),
+              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 20)),
+              _ProfilStat('${ContactsManager.contacts.length}', 'Contacts'),
             ]),
           ]),
         ),
         Expanded(
           child: ListView(padding: const EdgeInsets.all(16), children: [
-            const Text('Informations', style: TextStyle(fontSize: 13,
-                fontWeight: FontWeight.w500, color: Colors.grey)),
+            const Text('Informations', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)),
             const SizedBox(height: 10),
             _ProfilRow(Icons.phone_outlined, 'Téléphone', '+228 90 12 34 56'),
             _ProfilRow(Icons.location_on_outlined, 'Pays', 'Togo / Pays-Bas'),
             _ProfilRow(Icons.verified_outlined, 'Compte vérifié', 'Oui', valueColor: kVert),
             _ProfilRow(Icons.account_balance_wallet_outlined, 'Mode', 'Local FCFA'),
             const SizedBox(height: 18),
-            const Text('Paramètres', style: TextStyle(fontSize: 13,
-                fontWeight: FontWeight.w500, color: Colors.grey)),
+            const Text('Paramètres', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)),
             const SizedBox(height: 10),
             _ProfilRow(Icons.notifications_outlined, 'Notifications', 'Activées'),
             _ProfilRow(Icons.language_outlined, 'Langue', 'Français'),
             _ProfilRow(Icons.fingerprint_outlined, 'Sécurité', 'Biométrie'),
+            const SizedBox(height: 18),
+            // Lien vers les contacts
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen())),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade100)),
+                child: Row(children: [
+                  const Icon(Icons.people_outline, size: 20, color: Colors.grey),
+                  const SizedBox(width: 14),
+                  const Expanded(child: Text('Contacts favoris', style: TextStyle(fontSize: 14))),
+                  Text('${ContactsManager.contacts.length} contacts',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                ]),
+              ),
+            ),
             const SizedBox(height: 24),
             SizedBox(width: double.infinity, height: 50,
                 child: OutlinedButton(
@@ -1227,8 +1669,7 @@ class _ProfilRow extends StatelessWidget {
         Icon(icon, size: 20, color: Colors.grey),
         const SizedBox(width: 14),
         Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-        Text(valeur, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500,
-            color: valueColor ?? Colors.grey)),
+        Text(valeur, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: valueColor ?? Colors.grey)),
       ]),
     );
   }
@@ -1303,8 +1744,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   border: Border.all(color: Colors.grey.shade200)),
               child: Row(children: [
                 const Padding(padding: EdgeInsets.symmetric(horizontal: 14),
-                    child: Text('🇹🇬 +228', style: TextStyle(fontSize: 14,
-                        fontWeight: FontWeight.w500, color: Colors.grey))),
+                    child: Text('🇹🇬 +228', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey))),
                 Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone,
                     style: const TextStyle(fontSize: 16),
                     decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none))),
