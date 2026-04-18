@@ -17,7 +17,9 @@ class PayGateService {
   }) async {
     // Mode démo — simule un succès sans appeler PayGate
     if (_modeDemo) {
-      await Future.delayed(const Duration(seconds: 2)); // Simule le délai réseau
+      await Future.delayed(
+        const Duration(seconds: 2),
+      ); // Simule le délai réseau
       return {
         'success': true,
         'reference': reference,

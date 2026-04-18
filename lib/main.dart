@@ -902,6 +902,22 @@ class _SendScreenState extends State<SendScreen> {
   )));
 
   Future<void> _executer() async {
+    // Délai de confirmation 5 secondes
+    bool annule = false;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ConfirmationCountdownDialog(
+        montant: _montant,
+        numero: _phoneCtrl.text,
+        operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz',
+        onAnnuler: () { annule = true; Navigator.pop(ctx); },
+        onConfirmer: () { Navigator.pop(ctx); },
+      ),
+    );
+    if (annule) return;
+
+    // Progression du transfert
     showDialog(context: context, barrierDismissible: false,
         builder: (_) => _TransfertProgressDialog(numero: _phoneCtrl.text, operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz', montant: _montant));
     await Future.delayed(const Duration(seconds: 1));
@@ -911,9 +927,41 @@ class _SendScreenState extends State<SendScreen> {
       montant: _montant, reseau: PayGateService.convertirOperateur(_op), reference: ref,
     );
     Navigator.pop(context);
-    if (result['success']) Navigator.push(context, MaterialPageRoute(
-      builder: (_) => SuccessScreen(montant: _montant, numero: _phoneCtrl.text,
-          operateur: _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)', frais: _frais)));
+    if (result['success']) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => SuccessScreen(montant: _montant, numero: _phoneCtrl.text,
+            operateur: _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)', frais: _frais)));
+    } else {
+      // Message d'erreur clair
+      showDialog(context: context, builder: (ctx) => AlertDialog(
+        backgroundColor: kCardCtx(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 64, height: 64,
+              decoration: const BoxDecoration(color: Color(0xFFFEF0F0), shape: BoxShape.circle),
+              child: const Icon(Icons.error_outline, color: kRouge, size: 36)),
+          const SizedBox(height: 16),
+          Text('Transfert echoue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextCtx(context))),
+          const SizedBox(height: 8),
+          Text(
+            result['message'] ?? 'Une erreur est survenue. Verifie ta connexion et reessaie.',
+            style: TextStyle(fontSize: 13, color: kSubtextCtx(context)),
+            textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Row(children: [
+            Expanded(child: OutlinedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorderCtx(context)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: Text('Fermer', style: TextStyle(color: kSubtextCtx(context))))),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton(
+              onPressed: () { Navigator.pop(ctx); _confirmerPin(); },
+              style: ElevatedButton.styleFrom(backgroundColor: kNuit, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('Reessayer', style: TextStyle(color: Colors.white)))),
+          ]),
+        ]),
+      ));
+    }
   }
 
   @override
@@ -976,6 +1024,94 @@ class _SendScreenState extends State<SendScreen> {
         const Center(child: Text('Securise par PayGate Global · Togo', style: TextStyle(fontSize: 11, color: Colors.grey))),
       ])),
     );
+  }
+}
+
+
+// ─── DIALOG COMPTE A REBOURS ─────────────────────────────
+class _ConfirmationCountdownDialog extends StatefulWidget {
+  final int montant;
+  final String numero, operateur;
+  final VoidCallback onAnnuler, onConfirmer;
+  const _ConfirmationCountdownDialog({required this.montant, required this.numero,
+      required this.operateur, required this.onAnnuler, required this.onConfirmer});
+  @override
+  State<_ConfirmationCountdownDialog> createState() => _ConfirmationCountdownDialogState();
+}
+
+class _ConfirmationCountdownDialogState extends State<_ConfirmationCountdownDialog>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  int _secondes = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 5))..forward();
+    _demarrerCompte();
+  }
+
+  void _demarrerCompte() async {
+    for (int i = 5; i >= 0; i--) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      setState(() => _secondes = i);
+      if (i == 0) widget.onConfirmer();
+    }
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final eur = TauxChangeService.fcfaVersEuros(widget.montant);
+    final montantFmt = widget.montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '\${m[1]} ');
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: kCardCtx(context),
+      child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Stack(alignment: Alignment.center, children: [
+          SizedBox(width: 80, height: 80,
+            child: AnimatedBuilder(animation: _ctrl, builder: (_, __) =>
+              CircularProgressIndicator(value: 1 - _ctrl.value, color: kOrange,
+                  backgroundColor: kBorderCtx(context), strokeWidth: 5))),
+          Text('$_secondes', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextCtx(context))),
+        ]),
+        const SizedBox(height: 20),
+        Text('Confirmer l\'envoi ?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextCtx(context))),
+        const SizedBox(height: 16),
+        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Montant', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+              Text('FCFA $montantFmt', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextCtx(context))),
+            ]),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Equivalent', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+              Text('~$eur EUR', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            ]),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Vers', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+              Text('+228 \${widget.numero}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextCtx(context))),
+            ]),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Via', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+              Text(widget.operateur, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextCtx(context))),
+            ]),
+          ])),
+        const SizedBox(height: 8),
+        Text('Envoi automatique dans $_secondes sec...', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 16),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          onPressed: widget.onAnnuler,
+          icon: const Icon(Icons.close, size: 18, color: kRouge),
+          label: const Text('Annuler', style: TextStyle(color: kRouge, fontSize: 15, fontWeight: FontWeight.w500)),
+          style: OutlinedButton.styleFrom(side: const BorderSide(color: kRouge), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
+      ])));
   }
 }
 
