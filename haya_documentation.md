@@ -1,7 +1,5 @@
 # 📱 HAYA — Documentation Complète du Projet
-
-> App mobile de transfert d'argent vers Tmoney et Flooz au Togo
-> Développée avec Flutter | Intégration PayGate Global
+> Dernière mise à jour : 23 avril 2026
 
 ---
 
@@ -10,28 +8,20 @@
 - **Nom** : Haya (expression burkinabè = "allez, c'est parti")
 - **Slogan** : "Envoie. C'est parti."
 - **Couleurs** : Bleu nuit `#0D0D2B` + Orange `#F97316`
+- **Package** : `com.flexix.haya`
 - **Cible** : Diaspora togolaise aux Pays-Bas + utilisateurs locaux au Togo
-- **Modèle** : Pont de paiement — l'utilisateur paie, Haya route vers PayGate qui livre sur Tmoney/Flooz
+- **Modèle** : Transferts mobiles Tmoney ↔ Flooz au Togo
 
 ---
 
-## 📁 STRUCTURE DU PROJET
+## 👤 INFORMATIONS DÉVELOPPEUR
 
-```
-C:\Users\flexix\Desktop\haya\
-├── lib\
-│   ├── main.dart              ← Code principal (tous les écrans)
-│   ├── main_backup.dart       ← Sauvegarde du code
-│   └── paygate_service.dart   ← Service d'intégration PayGate
-├── assets\
-│   ├── icon.png               ← Icône officielle de l'app
-│   ├── haya_icon.png          ← Icône originale
-│   └── haya_banner.png        ← Bannière Play Store 1024x500
-├── android\                   ← Config Android
-├── ios\                       ← Config iOS
-├── pubspec.yaml               ← Dépendances Flutter
-└── privacy_policy.html        ← Politique de confidentialité
-```
+- **Développeur** : Koami Azanleko
+- **Adresse** : Van Dekemanlaan 8, Heerenveen, Pays-Bas
+- **KVK** : 95999698
+- **Email** : haya@flexix.nl
+- **Compte Google Play** : coursiertogo@gmail.com
+- **Account-ID Play** : 7702579219557169401
 
 ---
 
@@ -40,75 +30,87 @@ C:\Users\flexix\Desktop\haya\
 | Outil | Version | Emplacement |
 |-------|---------|-------------|
 | Flutter | 3.41.6 | `C:\flutter\bin` |
+| Projet Flutter | - | `C:\Users\flexix\Desktop\haya` |
+| Projet Backend | - | `C:\Users\flexix\Desktop\haya-backend` |
 | Android Studio | Panda 3 / 2025.3.3 | Installé |
 | VS Code | Dernière version | Installé |
-| Git | Configuré | Git Bash |
-| Dart | Inclus Flutter | - |
 
-### Commandes essentielles
+### Commandes Flutter
 ```bash
-flutter run                      # Lancer l'app (choisir 2 pour Chrome)
+flutter run                      # Lancer l'app (choisir Chrome)
 flutter run -d DEVICE_ID         # Lancer sur téléphone Android
 flutter build apk --release      # Générer l'APK final
-dart run flutter_launcher_icons  # Générer les icônes
+flutter build appbundle          # Générer AAB pour Play Store
 git add .                        # Préparer sauvegarde
 git commit -m "message"          # Sauvegarder
+```
+
+### Commandes Backend
+```bash
+cd C:\Users\flexix\Desktop\haya-backend
+npm run dev                      # Lancer en développement
+npm start                        # Lancer en production
+```
+
+---
+
+## 📁 STRUCTURE PROJET FLUTTER
+
+```
+C:\Users\flexix\Desktop\haya\
+├── lib\
+│   ├── main.dart                ← Code principal (tous les écrans)
+│   ├── feexpay_service.dart     ← Service FeexPay (mode sandbox)
+│   └── notchpay_service.dart   ← Service Notchpay (prêt à brancher)
+├── assets\
+│   └── icon.png                 ← Icône officielle
+├── android\app\build.gradle.kts ← Config signing
+├── pubspec.yaml                 ← version: 1.0.0+3
+└── haya-release.jks             ← Clé signing (MDP: haya12345, alias: haya)
+```
+
+## 📁 STRUCTURE PROJET BACKEND
+
+```
+C:\Users\flexix\Desktop\haya-backend\
+├── controllers\
+│   └── authController.js        ← Inscription + Connexion
+├── routes\
+│   └── authRoutes.js            ← Routes /api/auth
+├── middlewares\                 ← À compléter
+├── index.js                     ← Serveur Express
+├── database.js                  ← Connexion Supabase
+├── .env                         ← Variables d'environnement
+└── package.json
 ```
 
 ---
 
 ## 📱 ÉCRANS DE L'APP
 
-### 1. MainScreen (Navigation principale)
-- BottomNavigationBar avec 4 onglets fonctionnels
-- Gère la navigation entre tous les écrans
+### Fonctionnalités implémentées ✅
+1. **SplashScreen** — animation logo 2 secondes
+2. **LoginScreen** — connexion/inscription (fictif pour l'instant)
+3. **HomeScreen** — accueil avec transactions récentes
+4. **SendScreen** — envoi avec PIN + confirmation 5 sec + statut temps réel
+5. **ReceiveScreen** — QR code + partage WhatsApp/SMS
+6. **HistoryScreen** — historique avec filtres + partage reçu ✅ AMÉLIORÉ
+7. **ProfileScreen** — profil + numéros Tmoney/Flooz + bouton Paramètres ✅ AMÉLIORÉ
+8. **ParametresScreen** — écran paramètres complet ✅ NOUVEAU
+9. **ContactsScreen** — contacts favoris
+10. **PaymentRequestScreen** — demande de paiement WhatsApp/SMS
+11. **PinScreen** — clavier PIN 4 chiffres avec shake si erreur
+12. **SuccessScreen** — succès avec reçu partageable ✅ AMÉLIORÉ
+13. **_TransfertProgressDialog** — 4 étapes en temps réel
+14. **_ConfirmationCountdownDialog** — compte à rebours 5 secondes
 
-### 2. HomeScreen (Accueil)
-- Header avec dégradé bleu nuit `#0D0D2B → #1e1e6e`
-- "Bonjour, Koffi 👋" + solde "125 000 FCFA" (fictif pour l'instant)
-- Bouton œil pour cacher/afficher le solde
-- Barre d'actions compacte avec icônes orange
-- Avatars colorés par personne (6 couleurs)
-- "Voir tout" orange → HistoryScreen
-- Transactions récentes
+---
 
-### 3. SendScreen (Envoyer)
-- Détection automatique Tmoney/Flooz selon préfixe
-- Champ numéro avec indicatif 🇹🇬 +228
-- Montants rapides : 1000, 2000, 5000, 10000, 25000 FCFA
-- Calcul frais PayGate (2.5%)
-- Bouton "Envoyer via Tmoney/Flooz"
-- Intégration PayGate (mode démo activé)
+## 💰 STRUCTURE DES FRAIS HAYA
 
-### 4. ReceiveScreen (Recevoir) ✅ PHASE 2
-- Toggle Tmoney / Flooz
-- QR Code dessiné en Flutter (sans package externe)
-- Numéro affiché clairement avec nom utilisateur
-- Bouton "Copier le numéro" → presse-papiers
-- Bouton "Partager via WhatsApp/SMS" → message prêt à coller
-
-### 5. HistoryScreen (Activité)
-- Filtres : Tout / Tmoney / Flooz / Envois / Reçus
-- Stats : Total envoyé + Total reçu
-- Liste complète des transactions
-
-### 6. ProfileScreen (Profil)
-- Header dégradé avec avatar KA orange
-- Stats : Transferts / Total envoyé / Contacts
-- Informations personnelles
-- Paramètres
-- Bouton déconnexion
-
-### 7. SuccessScreen (Confirmation)
-- Icône verte de succès
-- Récapitulatif du transfert
-- Référence #TG-XXXXX
-- Statut "Complété ✓"
-
-### 8. LoginScreen (Connexion)
-- Toggle Connexion / Inscription
-- Champ téléphone avec +228
-- Champ mot de passe
+- **Montant minimum** : 1 000 FCFA
+- **Frais** : 1% du montant
+- **Minimum de frais** : 10 FCFA
 
 ---
 
@@ -119,107 +121,54 @@ const tmoneySuffixes = ['70', '71', '90', '91', '92', '93'];
 const floozPrefixes = ['79', '94', '95', '96', '97', '98', '99'];
 ```
 
-> ⚠️ Portabilité active depuis mai 2024 — préfixes non garantis à 100%
+---
+
+## 💳 INTÉGRATION PAIEMENT — FEEXPAY
+
+### Fichier : `lib/feexpay_service.dart`
+- **URL Togocom** : `https://api-v2.feexpay.me/api/transactions/public/requesttopay/togocom_tg`
+- **URL Moov** : `https://api-v2.feexpay.me/api/transactions/public/requesttopay/moov_tg`
+- **Shop ID** : yl8mn0u9Lc0R7p6
+- **`_modeSandbox = true`** ← à passer false après validation
+
+### ⚠️ STATUT FEEXPAY
+- Nouveau contrat soumis le 23/04/2026 — en attente de validation
 
 ---
 
-## 💳 INTÉGRATION PAYGATE
+## 💳 INTÉGRATION PAIEMENT — NOTCHPAY
 
-### Fichier : `lib/paygate_service.dart`
+### Fichier : `lib/notchpay_service.dart` ✅ Prêt
+- **URL init** : `https://api.notchpay.co/payments`
+- **Canal Tmoney** : `tg.togocom` — Canal Flooz : `tg.moov`
+- **Devise** : `XOF`
+- **`_modeSandbox = true`** ← à passer false après validation
 
-```dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
-class PayGateService {
-  static const String _baseUrl = 'https://paygateglobal.com/api/v2';
-  static const String _token = '0dcfd34f-7066-4224-a726-0a73a75e826c';
-
-  // ⚠️ MODE DÉMO — mettre à false quand PayGate est activé en Production
-  static const bool _modeDemo = true;
-
-  static Future<Map<String, dynamic>> initierPaiement({
-    required String telephone,
-    required int montant,
-    required String reseau,
-    required String reference,
-  }) async {
-    if (_modeDemo) {
-      await Future.delayed(const Duration(seconds: 2));
-      return {'success': true, 'reference': reference, 'message': 'Mode démo'};
-    }
-    // ... appel PayGate réel
-  }
-}
-```
-
-### Frais PayGate
-- Flooz : 2.5%
-- Tmoney : 3%
-
-### ⚠️ Activation Production
-- Envoyer KVK + CNI à PayGate
-- Changer `_modeDemo = true` → `_modeDemo = false`
+### ⚠️ STATUT NOTCHPAY
+- Compte créé le 23/04/2026 — documents fournis — en attente d'activation
 
 ---
 
-## 🎨 COULEURS ET DESIGN
+## 🗄️ BACKEND
 
-```dart
-const kNuit   = Color(0xFF0D0D2B);  // Bleu nuit principal
-const kOrange = Color(0xFFF97316);  // Orange haya
-const kVert   = Color(0xFF1D9E75);  // Vert (montants reçus)
-const kFond   = Color(0xFFF5F4FF);  // Fond gris-violet clair
-const kRouge  = Color(0xFFE24B4A);  // Rouge (montants envoyés)
+### Stack
+- **Node.js + Express** — API REST
+- **Supabase (PostgreSQL)** — Base de données hébergée en Irlande
 
-// Couleurs avatars (6 couleurs distinctes)
-const avatarColors = [
-  Color(0xFFEEEDFE), Color(0xFFD7F3EA), Color(0xFFFAEEDA),
-  Color(0xFFFFE4E4), Color(0xFFE4F0FF), Color(0xFFF0E4FF),
-];
-```
+### Routes disponibles ✅
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/auth/inscription` | POST | Créer un compte |
+| `/api/auth/connexion` | POST | Se connecter |
 
----
-
-## 📦 DÉPENDANCES (pubspec.yaml)
-
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  http: ^1.0.0
-  flutter_launcher_icons: ^0.14.4
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/icon.png"
-  min_sdk_android: 21
-  adaptive_icon_background: "#0D0D2B"
-  adaptive_icon_foreground: "assets/icon.png"
-```
-
----
-
-## 📲 APK GÉNÉRÉ
-
-- **Chemin** : `C:\Users\flexix\Desktop\haya\build\app\outputs\flutter-apk\app-release.apk`
-- **Taille** : ~46 MB
-- **Installation** : Envoyer par WhatsApp/email sur le téléphone
-
----
-
-## 🔖 SAUVEGARDES GIT
-
-| Commit | Message |
-|--------|---------|
-| bf876aa | "Premier ecran haya fonctionnel" |
-| f43e5d0 | "Ajout ecrans Historique Profil et Connexion" |
-| ab564ad | "Integration PayGate - transferts actifs" |
-| 5482d9a | "Interface améliorée - boutons plus grands" |
-| d95021f | "Design final haya - navigation complete" |
-| 29a1ffd | "Icone finale et nom Haya avec majuscule" |
-| b18d0d5 | "Phase 2 - Ecran Recevoir avec QR code et partage" |
+### Routes à créer 🔜
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/transactions` | POST | Créer une transaction |
+| `/api/transactions` | GET | Historique transactions |
+| `/api/users/profil` | GET | Récupérer le profil |
+| `/api/users/profil` | PUT | Modifier le profil |
+| `/api/auth/otp` | POST | Envoyer OTP SMS |
 
 ---
 
@@ -227,181 +176,138 @@ flutter_launcher_icons:
 
 | Ressource | URL |
 |-----------|-----|
+| Site web Haya | https://haya.flexix.nl |
 | Politique de confidentialité | https://coursiertogo.github.io/haya-privacy/privacy_policy.html |
 | Google Play Console | https://play.google.com/console |
-| GitHub Repository Privacy | https://github.com/coursiertogo/haya-privacy |
-| PayGate Global | https://paygateglobal.com |
+| GitHub compte | coursiertogo |
 
 ---
 
-## ✅ ÉTAT DU PROJET
+## 🔖 SAUVEGARDES GIT
 
-### Fait ✅
-- [x] App Flutter complète avec tous les écrans
-- [x] Détection automatique Tmoney/Flooz
-- [x] Intégration PayGate connectée (mode démo)
-- [x] Design professionnel niveau fintech
-- [x] Navigation fonctionnelle (BottomNavigationBar)
-- [x] Bouton cacher/afficher le solde
-- [x] Avatars colorés par personne
-- [x] Écran Recevoir avec QR code ✅ PHASE 2
-- [x] Boutons Copier et Partager ✅ PHASE 2
-- [x] APK installé et testé sur téléphone Android
-- [x] Icône officielle avec nom "Haya"
-- [x] Compte Google Play Developer créé
-- [x] Politique de confidentialité en ligne
-- [x] Bannière Play Store 1024x500 prête
-- [x] 4 captures d'écran prêtes
-- [x] Git configuré avec 7 sauvegardes
-
-### En attente ⏳
-- [ ] Email Google — vérification identité (quelques jours)
-- [ ] Email PayGate — activation compte Production
-- [ ] Mise à jour KVK avec activité logicielle
-
-### Phase 3 — Backend 🔲
-- [ ] Backend Node.js + base de données
-- [ ] Inscription réelle avec vérification OTP par SMS
-- [ ] Connexion sécurisée (JWT tokens)
-- [ ] Récupération vrai solde Tmoney et Flooz via API
-- [ ] **"Smart Transfer" (Split Payment)** ⭐ FONCTIONNALITÉ INNOVANTE
-- [ ] Publication sur Google Play Store
-- [ ] Couche diaspora Stripe/Wise (envois depuis Europe en euros)
-- [ ] Sécuriser clé API PayGate dans variable d'environnement
+| Commit | Message |
+|--------|---------|
+| bf876aa | Premier ecran haya fonctionnel |
+| f43e5d0 | Ajout ecrans Historique Profil et Connexion |
+| ab564ad | Integration PayGate - transferts actifs |
+| b18d0d5 | Phase 2 - Ecran Recevoir avec QR code et partage |
+| 763c973 | Message erreur + confirmation 5sec + mode sombre + ameliorations UI |
+| dernier | Integration FeexPay sandbox + Parametres + Recu partageable |
 
 ---
 
-## ⭐ SMART TRANSFER — Fonctionnalité Innovante
+## 🏪 PLAY STORE
 
-> Cette fonctionnalité différencie Haya de tous les concurrents togolais !
+- **Statut** : App publiée en test interne
+- **Version actuelle** : 1.0.0+3
+- **Prochaine version** : 1.0.1+4 (après intégration paiement réel)
+- **Testeurs nécessaires** : 12 comptes Gmail pour accès production
+- **Titre** : Haya - Transferts Mobile Togo
+- **Catégorie** : Finance
 
-**Concept :** L'utilisateur veut envoyer 10 000 FCFA mais a :
-- 3 000 FCFA sur Flooz
-- 8 000 FCFA sur Tmoney
+---
 
-**Haya fait automatiquement :**
-- 3 000 FCFA via Flooz
-- 7 000 FCFA via Tmoney
-- = **10 000 FCFA en une seule opération !**
+## 🌍 PARTENAIRES DE PAIEMENT
 
-**Comment ça fonctionne :**
-1. L'utilisateur tape le montant et le numéro du bénéficiaire
-2. Haya vérifie les soldes sur les deux comptes
-3. Haya calcule automatiquement la meilleure répartition
-4. Deux transactions PayGate lancées en parallèle
-5. Écran de confirmation affiche le détail du split
+| Partenaire | Statut | Notes |
+|------------|--------|-------|
+| FeexPay | 🟡 En attente | Contrat soumis le 23/04/2026 |
+| Notchpay | 🟡 En attente | Documents fournis le 23/04/2026 |
+| FedaPay | 🟡 Email envoyé | Demande éligibilité entreprise étrangère |
+| CinetPay | ❌ Refusé | Exige entreprise en Afrique |
+| PayGate | ⏳ Pas de réponse | Token conservé en mode démo |
+| Pawapay | ❌ Togo non couvert | - |
 
-**Nom dans l'app :** "Envoi intelligent" ou "Smart Transfer"
+---
 
-**Nécessite :** Backend Phase 3 + API de consultation de solde
+## 📬 DÉMARCHES ADMINISTRATIVES
+
+- **Uittreksel BRP** : Commandé à gemeente Heerenveen — en attente par courrier
+- **KVK 95999698** : Flexix, Heerenveen, Pays-Bas
+
+---
+
+## 🚀 PLAN — FIN AVRIL 2026
+
+### Progression backend ✅
+- ✅ Serveur Node.js + Express
+- ✅ Base de données Supabase connectée
+- ✅ Inscription utilisateur (JWT + bcrypt)
+- ✅ Connexion utilisateur
+
+### À faire cette semaine
+| Tâche | Priorité |
+|-------|----------|
+| Améliorations Flutter (liste ci-dessous) | 🔴 Haute |
+| Routes transactions backend | 🔴 Haute |
+| Connexion Flutter ↔ Backend | 🔴 Haute |
+| OTP SMS | 🟡 Moyenne |
+| Brancher Notchpay/FeexPay dès activation | 🔴 Haute |
+| Tests sur téléphone Android | 🔴 Haute |
+| Générer AAB + soumettre Play Store | 🟡 Moyenne |
+
+---
+
+## 🛠️ AMÉLIORATIONS FLUTTER À FAIRE
+
+### 🔴 Priorité haute — Sécurité
+1. **Forcer définition du PIN à la première connexion** — ne pas laisser le PIN par défaut 1234, obliger l'utilisateur à en créer un dès la première ouverture de l'app
+2. **Sécuriser les clés API** — sortir les clés de `feexpay_service.dart` et `notchpay_service.dart` et les mettre dans un fichier `.env` Flutter (package `flutter_dotenv`)
+3. **Verrouillage automatique** — demander le PIN après 2 minutes d'inactivité
+
+### 🟡 Priorité moyenne — Interface
+4. **Nom utilisateur dynamique** — remplacer "Koffi Ameko" et "KA" codés en dur par les vraies données du profil connecté
+5. **Mention paiement générique** — changer "Securise par FeexPay" en "Securise par Haya" dans SendScreen
+6. **Brancher Notchpay dans SendScreen** — remplacer les appels FeexPay par Notchpay dès activation
+
+### 🟢 Priorité basse — Expérience utilisateur
+7. **Vraie validation LoginScreen** — connecter l'écran de connexion au backend (appel API réel)
+8. **Solde réel** — remplacer le message "Connectez votre compte" par le vrai solde depuis le backend
+9. **Numéros dans PaymentRequestScreen** — pré-remplir automatiquement avec les numéros enregistrés dans le Profil
+
+---
+
+## 🌍 EXPANSION PAYS — PHASE 2
+
+> ⚠️ Phase 1 = Togo uniquement. L'expansion se fait après stabilisation.
+
+### Bénin 🇧🇯
+- **Opérateurs** : MTN Mobile Money, Moov Money
+- **FeexPay** : ✅ Couvert (1.7% PAYIN, 1% PAYOUT)
+- **Notchpay** : ✅ Couvert — **Indicatif** : +229
+
+### Burkina Faso 🇧🇫
+- **Opérateurs** : Orange Money, Moov Money
+- **FeexPay** : ✅ Couvert — **Notchpay** : ⚠️ À vérifier — **Indicatif** : +226
+
+### Ce qu'il faudra faire
+1. Ajouter sélecteur de pays dans l'app
+2. Ajouter préfixes et indicatifs par pays
+3. Adapter la détection automatique d'opérateur
 
 ---
 
 ## ⚠️ POINTS IMPORTANTS À NE PAS OUBLIER
 
-1. **🔐 Clé API PayGate** visible dans `paygate_service.dart` — à sécuriser avant publication
-2. **🎮 Mode démo** actif (`_modeDemo = true`) — changer à `false` quand PayGate activé
-3. **📧 Email** de contact : `haya@flexix.nl`
-4. **💶 CORS** : Appels PayGate bloqués sur Chrome — OK sur vrai téléphone Android
-5. **🇳🇱 KVK** : Mettre à jour avec "62010 - Ontwikkelen en produceren van software"
-6. **📱 Installation téléphone** : Via WhatsApp/email (pas USB — restriction Xiaomi)
-7. **💰 Frais** : PayGate prend 2.5% Flooz / 3% Tmoney par transaction
-8. **💰 Solde affiché** : Fictif (125 000 FCFA) — sera remplacé par vrai solde en Phase 3
+1. **Mode sandbox actif** (`_modeSandbox = true`) dans feexpay_service.dart ET notchpay_service.dart
+2. **Clé API FeexPay** dans feexpay_service.dart — à sécuriser avant production
+3. **Clé API Notchpay** dans notchpay_service.dart — à renseigner dès activation
+4. **Shop ID FeexPay** : yl8mn0u9Lc0R7p6
+5. **PIN par défaut** : 1234 — ⚠️ À forcer au changement à la première connexion
+6. **Solde affiché** : fictif — sera remplacé avec le backend
+7. **CORS** : Appels API bloqués sur Chrome — OK sur vrai téléphone Android
+8. **Signing key** : haya-release.jks, MDP: haya12345, alias: haya
 
 ---
 
-## 👤 INFORMATIONS DÉVELOPPEUR
+## 💡 VISION PRODUIT
 
-- **App** : Haya
-- **Email** : haya@flexix.nl
-- **KVK** : Pays-Bas (eenmanszaak)
-- **Compte Google Play** : coursiertogo@gmail.com
-- **Account-ID Play** : 7702579219557169401
-- **Pays** : Pays-Bas
+| Phase | Fonctionnalité | Statut |
+|-------|---------------|--------|
+| 1 | FCFA → FCFA Togo (Tmoney/Flooz) | 🟡 En cours |
+| 2 | Smart Transfer Tmoney ↔ Flooz | 🔜 Backend |
+| 3 | EUR → FCFA diaspora | 🔜 Phase 3 |
+| 4 | Expansion Bénin + Burkina Faso | 🔜 Après lancement Togo |
 
-
----
-
-## 🏪 FICHE GOOGLE PLAY STORE
-
-### Titre
-```
-Haya - Transferts Mobile Togo
-```
-
-### Description courte (80 caractères)
-```
-Envoie de l'argent vers Tmoney et Flooz au Togo. Intelligent et rapide !
-```
-
-### Description longue — Français
-```
-Haya — La première app qui combine Tmoney et Flooz en une seule opération !
-
-💡 LE PROBLÈME QU'ON RÉSOUT
-Tu veux envoyer 10 000 FCFA mais tu as 3 000 F sur Flooz et 8 000 F sur Tmoney ?
-Avec Haya, c'est une seule opération — Haya répartit automatiquement entre tes deux comptes !
-
-🚀 CE QUI REND HAYA UNIQUE
-✅ Smart Transfer — combine Tmoney + Flooz automatiquement en une seule opération
-✅ Détection automatique de l'opérateur selon le numéro du bénéficiaire
-✅ QR code personnel pour recevoir de l'argent
-✅ Frais transparents affichés avant confirmation
-✅ Historique complet de toutes tes transactions
-✅ Interface simple, rapide et intuitive
-
-👥 POUR QUI ?
-— La diaspora togolaise en Europe
-— Les familles au Togo
-— Les entrepreneurs locaux
-
-🔒 SÉCURITÉ
-Tous les transferts sont sécurisés par PayGate Global, agréé au Togo.
-
-Envoie. C'est parti. 🇹🇬
-```
-
-### Description longue — Anglais
-```
-Haya — The first app combining Tmoney and Flooz in a single transfer!
-
-💡 THE PROBLEM WE SOLVE
-Want to send 10,000 FCFA but have 3,000 F on Flooz and 8,000 F on Tmoney?
-With Haya, it's one single operation — Haya automatically splits between your two accounts!
-
-🚀 WHAT MAKES HAYA UNIQUE
-✅ Smart Transfer — automatically combines Tmoney + Flooz in one operation
-✅ Automatic operator detection by phone number
-✅ Personal QR code to receive money
-✅ Transparent fees shown before confirmation
-✅ Complete transaction history
-✅ Simple, fast and intuitive interface
-
-👥 FOR WHO?
-— Togolese diaspora in Europe
-— Families in Togo
-— Local entrepreneurs
-
-🔒 SECURITY
-All transfers secured by PayGate Global, certified in Togo.
-
-Send. Let's go. 🇹🇬
-```
-
-### Mots-clés
-```
-transfert argent togo, tmoney, flooz, mobile money,
-haya, diaspora togo, paygate, mixx by yas,
-moov africa, envoyer argent afrique
-```
-
-### Catégorie
-```
-Finance
-```
-
-### Politique de confidentialité
-```
-https://coursiertogo.github.io/haya-privacy/privacy_policy.html
-```
-
+**Roadmap frais :**
+- Frais : 1% du montant — Minimum : 1 000 FCFA — Minimum de frais : 10 FCFA

@@ -110,6 +110,21 @@ Future<void> partagerSMS(String message) async {
   if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
 }
 
+// ─── GESTIONNAIRE NUMÉROS PROFIL ─────────────────────────
+class NumerosManager {
+  static String _tmoney = '';
+  static String _flooz = '';
+  static bool _notificationsOn = true;
+
+  static String get tmoney => _tmoney;
+  static String get flooz => _flooz;
+  static bool get notificationsOn => _notificationsOn;
+
+  static void setTmoney(String v) => _tmoney = v;
+  static void setFlooz(String v) => _flooz = v;
+  static void setNotifications(bool v) => _notificationsOn = v;
+}
+
 // ─── TAUX DE CHANGE ──────────────────────────────────────
 class TauxChangeService {
   static double _tauxEuroFcfa = 655.957;
@@ -400,6 +415,17 @@ class _TxItemClickable extends StatelessWidget {
                 style: ElevatedButton.styleFrom(backgroundColor: kNuit, foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
             const SizedBox(height: 10),
+            // ─── BOUTON PARTAGER RECU ───
+            SizedBox(width: double.infinity, height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _partagerRecu(context);
+                },
+                icon: const Icon(Icons.receipt_long_outlined, size: 18, color: kOrange),
+                label: const Text('Partager le recu', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kOrange)),
+                style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+            const SizedBox(height: 10),
             TextButton(onPressed: () => Navigator.pop(context),
                 child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
           ]))),
@@ -427,6 +453,69 @@ class _TxItemClickable extends StatelessWidget {
             Icon(Icons.chevron_right, color: kSubtextCtx(context), size: 16),
           ]),
         ])),
+    );
+  }
+
+  void _partagerRecu(BuildContext context) {
+    final ref = 'TG-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final montantVal = montant.replaceAll(RegExp(r'[+-]'), '').trim();
+    final recu = '''
+🧾 REÇU HAYA
+─────────────────────
+${isOut ? '📤 Transfert envoyé' : '📥 Transfert reçu'}
+─────────────────────
+Montant   : FCFA $montantVal
+Opérateur : $operateur
+${isOut ? 'Destinataire' : 'Expéditeur'} : +228 $numero
+Date      : $date
+Référence : #$ref
+─────────────────────
+✅ Transaction confirmée
+Envoyé via Haya
+"Envoie. C'est parti."
+''';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kCardCtx(context),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Partager le reçu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
+            child: Text(recu, style: TextStyle(fontSize: 12, color: kTextCtx(context), fontFamily: 'monospace')),
+          ),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () { Navigator.pop(context); partagerWhatsApp(recu); },
+              icon: const Icon(Icons.chat, size: 16),
+              label: const Text('WhatsApp'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+            const SizedBox(width: 10),
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () { Navigator.pop(context); partagerSMS(recu); },
+              icon: const Icon(Icons.sms_outlined, size: 16, color: kOrange),
+              label: const Text('SMS', style: TextStyle(color: kOrange)),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+            const SizedBox(width: 10),
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: recu));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recu copie !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating));
+              },
+              icon: Icon(Icons.copy, size: 16, color: kSubtextCtx(context)),
+              label: Text('Copier', style: TextStyle(color: kSubtextCtx(context))),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorderCtx(context)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+          ]),
+        ]),
+      ),
     );
   }
 }
@@ -480,7 +569,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: kFondCtx(context),
       body: Column(children: [
-        // Header gradient (toujours sombre)
         Container(
           decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
               colors: [Color(0xFF0D0D2B), Color(0xFF1e1e6e)])),
@@ -523,7 +611,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen())).then((_) => setState(() {}))),
               ])),
           ])),
-        // Transactions récentes (sans la section contacts)
         Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Text('Transactions recentes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextCtx(context))),
@@ -902,7 +989,6 @@ class _SendScreenState extends State<SendScreen> {
   )));
 
   Future<void> _executer() async {
-    // Délai de confirmation 5 secondes
     bool annule = false;
     await showDialog(
       context: context,
@@ -917,7 +1003,6 @@ class _SendScreenState extends State<SendScreen> {
     );
     if (annule) return;
 
-    // Progression du transfert
     showDialog(context: context, barrierDismissible: false,
         builder: (_) => _TransfertProgressDialog(numero: _phoneCtrl.text, operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz', montant: _montant));
     await Future.delayed(const Duration(seconds: 1));
@@ -932,7 +1017,6 @@ class _SendScreenState extends State<SendScreen> {
         builder: (_) => SuccessScreen(montant: _montant, numero: _phoneCtrl.text,
             operateur: _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)', frais: _frais)));
     } else {
-      // Message d'erreur clair
       showDialog(context: context, builder: (ctx) => AlertDialog(
         backgroundColor: kCardCtx(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1027,7 +1111,6 @@ class _SendScreenState extends State<SendScreen> {
   }
 }
 
-
 // ─── DIALOG COMPTE A REBOURS ─────────────────────────────
 class _ConfirmationCountdownDialog extends StatefulWidget {
   final int montant;
@@ -1066,7 +1149,7 @@ class _ConfirmationCountdownDialogState extends State<_ConfirmationCountdownDial
   @override
   Widget build(BuildContext context) {
     final eur = TauxChangeService.fcfaVersEuros(widget.montant);
-    final montantFmt = widget.montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '\${m[1]} ');
+    final montantFmt = widget.montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: kCardCtx(context),
@@ -1095,7 +1178,7 @@ class _ConfirmationCountdownDialogState extends State<_ConfirmationCountdownDial
             const SizedBox(height: 6),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Vers', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
-              Text('+228 \${widget.numero}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextCtx(context))),
+              Text('+228 ${widget.numero}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextCtx(context))),
             ]),
             const SizedBox(height: 6),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1181,7 +1264,65 @@ class _SuccessScreenState extends State<SuccessScreen> with SingleTickerProvider
 
   void _partager() {
     final eur = TauxChangeService.fcfaVersEuros(widget.montant);
-    partagerWhatsApp('Transfert Haya confirme !\n\nMontant : FCFA ${widget.montant} (~$eur EUR)\nVers : +228 ${widget.numero}\nOperateur : ${widget.operateur}\nRef : #$_ref\nFrais : FCFA ${widget.frais}\nStatut : Complete\n\nEnvoye via Haya');
+    final recu = '''
+🧾 REÇU HAYA
+─────────────────────
+📤 Transfert envoyé
+─────────────────────
+Montant    : FCFA ${widget.montant} (~$eur EUR)
+Frais      : FCFA ${widget.frais}
+Opérateur  : ${widget.operateur}
+Destinataire : +228 ${widget.numero}
+Date       : ${_fmtDate(DateTime.now())}
+Référence  : #$_ref
+─────────────────────
+✅ Transaction confirmée
+Envoyé via Haya
+"Envoie. C'est parti."
+''';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kCardCtx(context),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Partager le reçu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
+            child: Text(recu, style: TextStyle(fontSize: 12, color: kTextCtx(context), fontFamily: 'monospace')),
+          ),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () { Navigator.pop(context); partagerWhatsApp(recu); },
+              icon: const Icon(Icons.chat, size: 16),
+              label: const Text('WhatsApp'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+            const SizedBox(width: 10),
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () { Navigator.pop(context); partagerSMS(recu); },
+              icon: const Icon(Icons.sms_outlined, size: 16, color: kOrange),
+              label: const Text('SMS', style: TextStyle(color: kOrange)),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+            const SizedBox(width: 10),
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: recu));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recu copie !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating));
+              },
+              icon: Icon(Icons.copy, size: 16, color: kSubtextCtx(context)),
+              label: Text('Copier', style: TextStyle(color: kSubtextCtx(context))),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorderCtx(context)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+          ]),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -1232,9 +1373,9 @@ class _SuccessScreenState extends State<SuccessScreen> with SingleTickerProvider
           const SizedBox(height: 16),
           SizedBox(width: double.infinity, height: 48,
             child: ElevatedButton.icon(onPressed: _partager,
-              icon: const Icon(Icons.chat, size: 18),
-              label: const Text('Partager via WhatsApp', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+              label: const Text('Partager le recu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
           const SizedBox(height: 10),
           SizedBox(width: double.infinity, height: 52,
             child: ElevatedButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
@@ -1454,6 +1595,197 @@ class _StatCard extends StatelessWidget {
     ])));
 }
 
+// ─── ÉCRAN PARAMÈTRES ────────────────────────────────────
+class ParametresScreen extends StatefulWidget {
+  const ParametresScreen({super.key});
+  @override
+  State<ParametresScreen> createState() => _ParametresScreenState();
+}
+
+class _ParametresScreenState extends State<ParametresScreen> {
+  bool _notifications = true;
+  final _tmoneyCtrl = TextEditingController();
+  final _floozCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tmoneyCtrl.text = NumerosManager.tmoney;
+    _floozCtrl.text = NumerosManager.flooz;
+    _notifications = NumerosManager.notificationsOn;
+  }
+
+  @override
+  void dispose() {
+    _tmoneyCtrl.dispose();
+    _floozCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _sectionTitre(String titre) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+    child: Text(titre.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kOrange, letterSpacing: 1.2)),
+  );
+
+  Widget _tuile({required IconData icon, required String titre, required String sousTitre, required VoidCallback onTap}) =>
+    ListTile(
+      leading: Icon(icon, color: kOrange),
+      title: Text(titre, style: TextStyle(color: kTextCtx(context))),
+      subtitle: Text(sousTitre, style: TextStyle(color: kSubtextCtx(context))),
+      trailing: Icon(Icons.chevron_right, color: kSubtextCtx(context)),
+      onTap: onTap,
+    );
+
+  void _afficherGestionNumeros() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kCardCtx(context),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(left: 20, right: 20, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Mes numéros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 6),
+          Text('Ces numéros seront utilisés dans "Demande de paiement"', style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
+          const SizedBox(height: 20),
+          Text('Numéro Tmoney', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(context)))),
+              Expanded(child: TextField(controller: _tmoneyCtrl, keyboardType: TextInputType.phone, maxLength: 8,
+                  style: TextStyle(fontSize: 15, color: kTextCtx(context)),
+                  decoration: const InputDecoration(hintText: 'Ex: 90123456', border: InputBorder.none, counterText: ''))),
+            ])),
+          const SizedBox(height: 14),
+          Text('Numéro Flooz', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(context)))),
+              Expanded(child: TextField(controller: _floozCtrl, keyboardType: TextInputType.phone, maxLength: 8,
+                  style: TextStyle(fontSize: 15, color: kTextCtx(context)),
+                  decoration: const InputDecoration(hintText: 'Ex: 94123456', border: InputBorder.none, counterText: ''))),
+            ])),
+          const SizedBox(height: 20),
+          SizedBox(width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                NumerosManager.setTmoney(_tmoneyCtrl.text);
+                NumerosManager.setFlooz(_floozCtrl.text);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Numéros sauvegardés !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating));
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: kOrange, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('Sauvegarder', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)))),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFondCtx(context),
+      appBar: AppBar(
+        backgroundColor: kNuit,
+        foregroundColor: Colors.white,
+        title: const Text('Paramètres', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      ),
+      body: ListView(children: [
+        // ── Sécurité ──
+        _sectionTitre('Sécurité'),
+        _tuile(
+          icon: Icons.lock_outline,
+          titre: 'Changer le PIN',
+          sousTitre: 'Modifier votre code PIN à 4 chiffres',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PinScreen(
+            titre: 'Nouveau PIN', sousTitre: 'Définir un nouveau code PIN',
+            onSuccess: (_) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN mis à jour !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating)); },
+            modeDefinition: true))),
+        ),
+
+        // ── Mes numéros ──
+        _sectionTitre('Mes numéros'),
+        _tuile(
+          icon: Icons.phone_android,
+          titre: 'Numéros Tmoney / Flooz',
+          sousTitre: NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty
+              ? 'Tmoney: ${NumerosManager.tmoney.isNotEmpty ? "+228 ${NumerosManager.tmoney}" : "Non défini"} · Flooz: ${NumerosManager.flooz.isNotEmpty ? "+228 ${NumerosManager.flooz}" : "Non défini"}'
+              : 'Gérer vos numéros de réception',
+          onTap: _afficherGestionNumeros,
+        ),
+
+        // ── Notifications ──
+        _sectionTitre('Notifications'),
+        SwitchListTile(
+          secondary: const Icon(Icons.notifications_outlined, color: kOrange),
+          title: Text('Notifications', style: TextStyle(color: kTextCtx(context))),
+          subtitle: Text('Recevoir les alertes de transfert', style: TextStyle(color: kSubtextCtx(context))),
+          value: _notifications,
+          activeColor: kOrange,
+          onChanged: (val) { setState(() => _notifications = val); NumerosManager.setNotifications(val); },
+        ),
+
+        // ── Apparence ──
+        _sectionTitre('Apparence'),
+        StatefulBuilder(builder: (context, setS) {
+          return SwitchListTile(
+            secondary: Icon(ThemeManager.instance.isDark ? Icons.dark_mode : Icons.light_mode, color: kOrange),
+            title: Text('Mode sombre', style: TextStyle(color: kTextCtx(context))),
+            subtitle: Text('Changer l\'apparence de l\'app', style: TextStyle(color: kSubtextCtx(context))),
+            value: ThemeManager.instance.isDark,
+            activeColor: kOrange,
+            onChanged: (val) { ThemeManager.instance.toggle(); setS(() {}); },
+          );
+        }),
+
+        // ── À propos ──
+        _sectionTitre('À propos'),
+        _tuile(
+          icon: Icons.privacy_tip_outlined,
+          titre: 'Politique de confidentialité',
+          sousTitre: 'Voir notre politique',
+          onTap: () async {
+            final url = Uri.parse('https://coursiertogo.github.io/haya-privacy/privacy_policy.html');
+            if (await canLaunchUrl(url)) launchUrl(url, mode: LaunchMode.externalApplication);
+          },
+        ),
+        _tuile(
+          icon: Icons.info_outline,
+          titre: 'À propos de Haya',
+          sousTitre: 'Version 1.0.0 · Flexix · Pays-Bas',
+          onTap: () => showAboutDialog(
+            context: context,
+            applicationName: 'Haya',
+            applicationVersion: '1.0.0',
+            applicationLegalese: "Envoie. C'est parti.\n© 2026 Flexix · Heerenveen",
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── Déconnexion ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.logout, color: kRouge),
+            label: const Text('Déconnexion', style: TextStyle(color: kRouge, fontSize: 15)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: kRouge),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false),
+          ),
+        ),
+        const SizedBox(height: 30),
+      ]),
+    );
+  }
+}
+
 // ─── PROFIL ──────────────────────────────────────────────
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -1471,12 +1803,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0D0D2B), Color(0xFF1e1e6e)])),
           padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
           child: Column(children: [
-            CircleAvatar(radius: 38, backgroundColor: kOrange.withOpacity(0.8),
-                child: const Text('KA', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
-            const SizedBox(height: 14),
-            const Text('Koffi Ameko', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 5),
-            const Text('koffi.ameko@gmail.com', style: TextStyle(color: Colors.white54, fontSize: 14)),
+            // ── Bouton Paramètres en haut à droite ──
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const SizedBox(width: 40),
+              Column(children: [
+                CircleAvatar(radius: 38, backgroundColor: kOrange.withOpacity(0.8),
+                    child: const Text('KA', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
+                const SizedBox(height: 14),
+                const Text('Koffi Ameko', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 5),
+                const Text('koffi.ameko@gmail.com', style: TextStyle(color: Colors.white54, fontSize: 14)),
+              ]),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {})),
+                child: Container(padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white24)),
+                  child: const Icon(Icons.settings_outlined, color: Colors.white, size: 22)),
+              ),
+            ]),
             const SizedBox(height: 18),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _ProfilStat('47', 'Transferts'),
@@ -1492,6 +1836,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _ProfilRow(Icons.location_on_outlined, 'Pays', 'Togo / Pays-Bas'),
           _ProfilRow(Icons.verified_outlined, 'Compte verifie', 'Oui', valueColor: kVert),
           _ProfilRow(Icons.euro_outlined, 'Taux EUR/FCFA', '1 EUR = ${TauxChangeService.tauxEuroFcfa.toStringAsFixed(2)} FCFA'),
+          const SizedBox(height: 18),
+          const Text('Mes numéros', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
+          _ProfilRow(Icons.phone_android, 'Tmoney', NumerosManager.tmoney.isNotEmpty ? '+228 ${NumerosManager.tmoney}' : 'Non défini',
+              valueColor: NumerosManager.tmoney.isNotEmpty ? kVert : kRouge),
+          _ProfilRow(Icons.phone_android, 'Flooz', NumerosManager.flooz.isNotEmpty ? '+228 ${NumerosManager.flooz}' : 'Non défini',
+              valueColor: NumerosManager.flooz.isNotEmpty ? kVert : kRouge),
           const SizedBox(height: 18),
           const Text('Securite', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
           GestureDetector(
@@ -1509,25 +1859,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(width: 8), Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
               ]))),
           const SizedBox(height: 18),
-          const Text('Parametres', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
-          _ProfilRow(Icons.notifications_outlined, 'Notifications', 'Activees'),
-          _ProfilRow(Icons.language_outlined, 'Langue', 'Francais'),
-          const SizedBox(height: 8),
-          // ─── TOGGLE MODE SOMBRE ───
-          Container(padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14), margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
-            child: Row(children: [
-              Icon(isDark ? Icons.dark_mode : Icons.light_mode, size: 20, color: isDark ? kOrange : Colors.grey),
-              const SizedBox(width: 14),
-              Expanded(child: Text('Mode sombre', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
-              Switch(
-                value: isDark,
-                onChanged: (_) { ThemeManager.instance.toggle(); setState(() {}); },
-                activeColor: kOrange,
-                activeTrackColor: kOrange.withOpacity(0.3),
-              ),
-            ])),
-          const SizedBox(height: 18),
+          const Text('Acces rapide', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
+          // ── Bouton Paramètres dans la liste ──
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {})),
+            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
+              child: Row(children: [
+                const Icon(Icons.settings_outlined, size: 20, color: Colors.grey), const SizedBox(width: 14),
+                Expanded(child: Text('Paramètres', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
+                Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
+              ]))),
           GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen())),
             child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
@@ -1536,15 +1878,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Expanded(child: Text('Contacts favoris', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
                 Text('${ContactsManager.contacts.length} contacts', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context))),
                 const SizedBox(width: 8), Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
-              ]))),
-          GestureDetector(
-            onTap: () async { final url = Uri.parse('https://coursiertogo.github.io/haya-privacy/privacy_policy.html'); if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication); },
-            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
-              child: Row(children: [
-                const Icon(Icons.info_outline, size: 20, color: Colors.grey), const SizedBox(width: 14),
-                Expanded(child: Text('A propos de Haya', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
-                const Icon(Icons.open_in_new, size: 14, color: Colors.grey),
               ]))),
           const SizedBox(height: 24),
           SizedBox(width: double.infinity, height: 50,
