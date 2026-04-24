@@ -125,6 +125,82 @@ class NumerosManager {
   static void setNotifications(bool v) => _notificationsOn = v;
 }
 
+// ─── HAYA API SERVICE ────────────────────────────────────
+class HayaApiService {
+  // ⚠️ En local : http://localhost:3000
+  // ⚠️ En production : remplacer par l'URL Railway/Render
+  static const String _baseUrl = 'http://localhost:3000/api';
+
+  // ID utilisateur connecté — sera remplacé par le vrai ID JWT
+  static int utilisateurId = 1;
+
+  /// Enregistrer une transaction après un paiement réussi
+  static Future<bool> enregistrerTransaction({
+    required String telephone,
+    required int montant,
+    required String operateur,
+    required String reference,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/transactions'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'expediteur_id': utilisateurId,
+          'telephone_destinataire': telephone,
+          'montant': montant,
+          'operateur': operateur,
+          'reference': reference,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 201;
+    } catch (e) {
+      // Si le backend est inaccessible, on continue quand même
+      print('Backend non disponible: $e');
+      return false;
+    }
+  }
+
+  /// Récupérer l'historique des transactions
+  static Future<List<Map<String, dynamic>>> getHistorique() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/transactions/$utilisateurId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['transactions']);
+      }
+      return [];
+    } catch (e) {
+      print('Erreur historique: $e');
+      return [];
+    }
+  }
+
+  /// Récupérer les statistiques
+  static Future<Map<String, dynamic>> getStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/transactions/stats/$utilisateurId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['stats'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      print('Erreur stats: $e');
+      return {};
+    }
+  }
+}
+
 // ─── TAUX DE CHANGE ──────────────────────────────────────
 class TauxChangeService {
   static double _tauxEuroFcfa = 655.957;
@@ -1112,6 +1188,13 @@ class _SendScreenState extends State<SendScreen> {
     Navigator.pop(context);
     if (result['success']) {
       if (!mounted) return;
+      // Enregistrer la transaction dans le backend
+      HayaApiService.enregistrerTransaction(
+        telephone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+        montant: _montant,
+        operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz',
+        reference: ref,
+      );
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => SuccessScreen(montant: _montant, numero: _phoneCtrl.text,
             operateur: _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)', frais: _frais)));
