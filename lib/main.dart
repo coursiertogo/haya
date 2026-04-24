@@ -155,6 +155,21 @@ class PinManager {
   static bool verifierPin(String pin) => pin == _pin;
 }
 
+// ─── USER MANAGER ────────────────────────────────────────
+class UserManager {
+  static String nom = 'Koffi';
+  static String prenom = 'Ameko';
+  static String email = 'koffi.ameko@gmail.com';
+  static String telephone = '90123456';
+
+  static String get nomComplet => '$prenom $nom';
+  static String get initiales {
+    final n = prenom.isNotEmpty ? prenom[0].toUpperCase() : '';
+    final p = nom.isNotEmpty ? nom[0].toUpperCase() : '';
+    return '$n$p';
+  }
+}
+
 // ─── CONTACT ─────────────────────────────────────────────
 class Contact {
   final String nom, numero, operateur;
@@ -211,11 +226,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         FadeTransition(opacity: _fade, child: Column(children: [
           const Text('haya', style: TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w600, letterSpacing: -2)),
           const SizedBox(height: 8),
-          Text("Envoie. C'est parti.", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16)),
+          Text("Envoie. C'est parti.", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16)),
         ])),
         const SizedBox(height: 60),
         FadeTransition(opacity: _fade,
-          child: Text('Togo · Pays-Bas', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13))),
+          child: Text('Togo · Pays-Bas', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13))),
       ])),
     );
   }
@@ -298,7 +313,7 @@ class _PinScreenState extends State<PinScreen> with SingleTickerProviderStateMix
         const SizedBox(height: 24),
         Text(titre, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        Text(sousTitre, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14), textAlign: TextAlign.center),
+        Text(sousTitre, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14), textAlign: TextAlign.center),
         const SizedBox(height: 40),
         AnimatedBuilder(animation: _shakeAnim, builder: (context, child) {
           final dx = _error ? ((_shakeAnim.value * 4).round() % 2 == 0 ? -8.0 : 8.0) * (1 - _shakeAnim.value) : 0.0;
@@ -307,7 +322,7 @@ class _PinScreenState extends State<PinScreen> with SingleTickerProviderStateMix
           children: List.generate(4, (i) => Container(
             margin: const EdgeInsets.symmetric(horizontal: 10), width: 16, height: 16,
             decoration: BoxDecoration(shape: BoxShape.circle,
-              color: i < _pin.length ? kOrange : (_error ? kRouge : Colors.white.withOpacity(0.3))))))),
+              color: i < _pin.length ? kOrange : (_error ? kRouge : Colors.white.withValues(alpha: 0.3))))))),
         if (_error) Padding(padding: const EdgeInsets.only(top: 16),
             child: const Text('PIN incorrect. Reessaie.', style: TextStyle(color: kRouge, fontSize: 13))),
         const Spacer(),
@@ -318,7 +333,7 @@ class _PinScreenState extends State<PinScreen> with SingleTickerProviderStateMix
                 GestureDetector(
                   onTap: c == '\u232b' ? _effacer : c.isEmpty ? null : () => _onChiffre(c),
                   child: Container(width: 72, height: 72, margin: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: c.isEmpty ? Colors.transparent : Colors.white.withOpacity(0.08), shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: c.isEmpty ? Colors.transparent : Colors.white.withValues(alpha: 0.08), shape: BoxShape.circle),
                     child: Center(child: c == '\u232b'
                         ? const Icon(Icons.backspace_outlined, color: Colors.white, size: 22)
                         : Text(c, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w300))))
@@ -529,6 +544,10 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+
+  void changerOnglet(int index) {
+    setState(() => _currentIndex = index);
+  }
   final List<Widget> _screens = const [HomeScreen(), SendScreen(), HistoryScreen(), ProfileScreen()];
 
   @override
@@ -564,6 +583,82 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
+  void _afficherMenuUtilisateur(BuildContext outerContext) {
+    // On capture le context extérieur avant d'ouvrir le sheet
+    final mainState = outerContext.findAncestorStateOfType<_MainScreenState>();
+
+    showModalBottomSheet(
+      context: outerContext,
+      backgroundColor: kCardCtx(outerContext),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          Row(children: [
+            CircleAvatar(radius: 28, backgroundColor: kOrange.withValues(alpha: 0.2),
+                child: Text(UserManager.initiales, style: const TextStyle(color: kOrange, fontSize: 18, fontWeight: FontWeight.w600))),
+            const SizedBox(width: 14),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(UserManager.nomComplet, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextCtx(outerContext))),
+              const SizedBox(height: 3),
+              Text('+228 ${UserManager.telephone}', style: TextStyle(fontSize: 13, color: kSubtextCtx(outerContext))),
+            ]),
+          ]),
+          const SizedBox(height: 20),
+          Divider(color: kBorderCtx(outerContext)),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kNuit.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.person_outline, color: kNuit, size: 22)),
+            title: Text('Mon profil', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextCtx(outerContext))),
+            subtitle: Text('Voir et modifier mon profil', style: TextStyle(fontSize: 12, color: kSubtextCtx(outerContext))),
+            trailing: Icon(Icons.chevron_right, color: kSubtextCtx(outerContext)),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              mainState?.changerOnglet(3);
+            },
+          ),
+          ListTile(
+            leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kOrange.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.settings_outlined, color: kOrange, size: 22)),
+            title: Text('Paramètres', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextCtx(outerContext))),
+            subtitle: Text('PIN, notifications, apparence', style: TextStyle(fontSize: 12, color: kSubtextCtx(outerContext))),
+            trailing: Icon(Icons.chevron_right, color: kSubtextCtx(outerContext)),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              Navigator.push(outerContext, MaterialPageRoute(builder: (_) => const ParametresScreen()));
+            },
+          ),
+          ListTile(
+            leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kRouge.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.logout, color: kRouge, size: 22)),
+            title: const Text('Déconnexion', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kRouge)),
+            subtitle: Text('Quitter votre compte', style: TextStyle(fontSize: 12, color: kSubtextCtx(outerContext))),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              showDialog(context: outerContext, builder: (dialogCtx) => AlertDialog(
+                backgroundColor: kCardCtx(outerContext),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Text('Déconnexion', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kTextCtx(outerContext))),
+                content: Text('Voulez-vous vraiment vous déconnecter ?', style: TextStyle(fontSize: 14, color: kSubtextCtx(outerContext))),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+                  TextButton(
+                    onPressed: () => Navigator.pushAndRemoveUntil(outerContext, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false),
+                    child: const Text('Déconnecter', style: TextStyle(color: kRouge, fontWeight: FontWeight.w600))),
+                ],
+              ));
+            },
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -581,11 +676,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 10),
                 const Text('haya', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500, letterSpacing: -0.5)),
               ]),
-              CircleAvatar(radius: 18, backgroundColor: kOrange.withOpacity(0.3),
-                  child: const Text('KA', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
+              GestureDetector(
+                onTap: () => _afficherMenuUtilisateur(context),
+                child: CircleAvatar(radius: 18, backgroundColor: kOrange.withValues(alpha: 0.3),
+                    child: Text(UserManager.initiales, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)))),
             ]),
             const SizedBox(height: 18),
-            const Text('Bonjour, Koffi !', style: TextStyle(color: Colors.white70, fontSize: 14)),
+            Text('Bonjour, ${UserManager.prenom} !', style: const TextStyle(color: Colors.white70, fontSize: 14)),
             const SizedBox(height: 6),
             Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white24)),
@@ -750,11 +847,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       ]),
                     ])),
                     GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SendScreen(numeroInitial: c.numero))),
-                      child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kOrange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                      child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kOrange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.send_outlined, color: kOrange, size: 20))),
                     const SizedBox(width: 8),
                     GestureDetector(onTap: () => _supprimer(i),
-                      child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kRouge.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                      child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kRouge.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.delete_outline, color: kRouge, size: 20))),
                   ]));
               }),
@@ -775,7 +872,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   String _op = 'tmoney';
   String get _num => _op == 'tmoney' ? '90123456' : '94123456';
   String get _nomOp => _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
-  String _msg() => 'Envoie-moi de l\'argent sur Haya !\n\nNom : Koffi Ameko\nNumero $_nomOp : +228 $_num\n\nTelecharge Haya : https://play.google.com/store/apps/details?id=com.flexix.haya';
+  String _msg() => 'Envoie-moi de l\'argent sur Haya !\n\nNom : ${UserManager.nomComplet}\nNumero $_nomOp : +228 $_num\n\nTelecharge Haya : https://play.google.com/store/apps/details?id=com.flexix.haya';
 
   @override
   Widget build(BuildContext context) {
@@ -793,7 +890,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         const SizedBox(height: 28),
         Container(padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 4))]),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 4))]),
           child: Column(children: [
             Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(color: _op == 'tmoney' ? const Color(0xFFEEEDFE) : const Color(0xFFFAEEDA), borderRadius: BorderRadius.circular(20)),
@@ -802,7 +899,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             CustomPaint(size: const Size(200, 200), painter: _QRCodePainter(data: '+228$_num', color: _op == 'tmoney' ? const Color(0xFF3C3489) : const Color(0xFF854F0B))),
             const SizedBox(height: 20),
             Text('+228 $_num', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w600, letterSpacing: 1, color: kNuit)),
-            const SizedBox(height: 4), const Text('Koffi Ameko', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(height: 4), Text(UserManager.nomComplet, style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ])),
         const SizedBox(height: 24),
         SizedBox(width: double.infinity, height: 52,
@@ -883,7 +980,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
     final ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final eur = TauxChangeService.fcfaVersEuros(_montant);
     final opNom = _op == 'tmoney' ? 'Tmoney' : _op == 'flooz' ? 'Flooz' : 'Mobile Money';
-    return 'Demande de paiement Haya\n\nDe : Koffi Ameko\nMontant : FCFA ${_montant.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]} ")} (~$eur EUR)\nObjet : ${_objetCtrl.text}\nOperateur : $opNom\nRef : #$ref\n\nPour payer ouvre Haya et envoie au :\n+228 ${_phoneCtrl.text}\n\nhttps://play.google.com/store/apps/details?id=com.flexix.haya';
+    return 'Demande de paiement Haya\n\nDe : ${UserManager.nomComplet}\nMontant : FCFA ${_montant.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]} ")} (~$eur EUR)\nObjet : ${_objetCtrl.text}\nOperateur : $opNom\nRef : #$ref\n\nPour payer ouvre Haya et envoie au :\n+228 ${_phoneCtrl.text}\n\nhttps://play.google.com/store/apps/details?id=com.flexix.haya';
   }
 
   @override
@@ -1011,12 +1108,15 @@ class _SendScreenState extends State<SendScreen> {
       telephone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
       montant: _montant, reseau: FeexPayService.convertirOperateur(_op), reference: ref,
     );
+    if (!mounted) return;
     Navigator.pop(context);
     if (result['success']) {
+      if (!mounted) return;
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => SuccessScreen(montant: _montant, numero: _phoneCtrl.text,
             operateur: _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)', frais: _frais)));
     } else {
+      if (!mounted) return;
       showDialog(context: context, builder: (ctx) => AlertDialog(
         backgroundColor: kCardCtx(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1105,7 +1205,7 @@ class _SendScreenState extends State<SendScreen> {
             child: Text(_peut ? 'Envoyer via ${_op == "tmoney" ? "Tmoney" : "Flooz"}' : 'Confirmer le transfert',
               style: TextStyle(color: _peut ? Colors.white : Colors.grey, fontSize: 16, fontWeight: FontWeight.w500)))),
         const SizedBox(height: 10),
-        const Center(child: Text('Securise par FeexPay · Togo', style: TextStyle(fontSize: 11, color: Colors.grey))),
+        const Center(child: Text('Securise par Haya · Togo', style: TextStyle(fontSize: 11, color: Colors.grey))),
       ])),
     );
   }
@@ -1354,7 +1454,7 @@ Envoyé via Haya
           const SizedBox(height: 20),
           Container(width: double.infinity, padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kBorderCtx(context)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)]),
+                border: Border.all(color: kBorderCtx(context)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)]),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Recu', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextCtx(context))),
@@ -1408,7 +1508,7 @@ class _NotificationBannerState extends State<_NotificationBanner> with SingleTic
   Widget build(BuildContext context) => SlideTransition(position: _slide,
     child: Material(elevation: 8, borderRadius: BorderRadius.circular(16),
       child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(color: kNuit, borderRadius: BorderRadius.circular(16), border: Border.all(color: kOrange.withOpacity(0.3))),
+        decoration: BoxDecoration(color: kNuit, borderRadius: BorderRadius.circular(16), border: Border.all(color: kOrange.withValues(alpha: 0.3))),
         child: Row(children: [
           Container(width: 40, height: 40, decoration: const BoxDecoration(color: Color(0xFFE7F6EF), shape: BoxShape.circle),
               child: const Icon(Icons.check_circle, color: kVert, size: 24)),
@@ -1724,7 +1824,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
           title: Text('Notifications', style: TextStyle(color: kTextCtx(context))),
           subtitle: Text('Recevoir les alertes de transfert', style: TextStyle(color: kSubtextCtx(context))),
           value: _notifications,
-          activeColor: kOrange,
+          activeThumbColor: kOrange,
           onChanged: (val) { setState(() => _notifications = val); NumerosManager.setNotifications(val); },
         ),
 
@@ -1736,7 +1836,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
             title: Text('Mode sombre', style: TextStyle(color: kTextCtx(context))),
             subtitle: Text('Changer l\'apparence de l\'app', style: TextStyle(color: kSubtextCtx(context))),
             value: ThemeManager.instance.isDark,
-            activeColor: kOrange,
+            activeThumbColor: kOrange,
             onChanged: (val) { ThemeManager.instance.toggle(); setS(() {}); },
           );
         }),
@@ -1807,12 +1907,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const SizedBox(width: 40),
               Column(children: [
-                CircleAvatar(radius: 38, backgroundColor: kOrange.withOpacity(0.8),
-                    child: const Text('KA', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
+                CircleAvatar(radius: 38, backgroundColor: kOrange.withValues(alpha: 0.8),
+                    child: Text(UserManager.initiales, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
                 const SizedBox(height: 14),
-                const Text('Koffi Ameko', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+                Text(UserManager.nomComplet, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 5),
-                const Text('koffi.ameko@gmail.com', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                Text(UserManager.email, style: const TextStyle(color: Colors.white54, fontSize: 14)),
               ]),
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {})),
