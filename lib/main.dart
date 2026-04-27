@@ -778,6 +778,46 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _chargement = false;
+  List<Map<String, dynamic>> _txs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerTransactions();
+  }
+
+  Future<void> _chargerTransactions() async {
+    setState(() => _chargement = true);
+    try {
+      final data = await HayaApiService.getHistorique();
+      setState(() {
+        _txs = data.map((t) {
+          final num = t['telephone_destinataire']?.toString() ?? '';
+          final initiales = num.length >= 2 ? num.substring(0, 2).toUpperCase() : 'TX';
+          final montant = (double.tryParse(t['montant']?.toString() ?? '0') ?? 0).toInt();
+          final op = (t['operateur'] ?? '').toString();
+          final dateStr = t['cree_le']?.toString() ?? '';
+          DateTime dv = DateTime.now();
+          try { dv = DateTime.parse(dateStr); } catch (_) {}
+          final diff = DateTime.now().difference(dv);
+          String dateAff;
+          if (diff.inDays == 0) dateAff = 'Auj. ${dv.hour.toString().padLeft(2, '0')}:${dv.minute.toString().padLeft(2, '0')}';
+          else if (diff.inDays == 1) dateAff = 'Hier';
+          else dateAff = '${dv.day.toString().padLeft(2, '0')}/${dv.month.toString().padLeft(2, '0')}';
+          return {
+            'i': initiales, 'nom': '+228 $num',
+            'op': op.isNotEmpty ? op[0].toUpperCase() + op.substring(1) : 'Mobile',
+            'date': dateAff, 'm': '-${montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
+            'out': true, 'ci': 0, 'num': num,
+          };
+        }).toList();
+      });
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
 
   void _afficherMenuUtilisateur(BuildContext outerContext) {
     // On capture le context extérieur avant d'ouvrir le sheet
@@ -909,13 +949,30 @@ class _HomeScreenState extends State<HomeScreen> {
             GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
                 child: const Text('Voir tout', style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500))),
           ])),
-        Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: const [
-          _TxItemClickable(initiales: 'AK', nom: 'Ama Kpodo', operateur: 'Tmoney', date: 'Auj. 10:24', montant: '-5 000', isOut: true, colorIndex: 0, numero: '90123456'),
-          _TxItemClickable(initiales: 'YB', nom: 'Yawa Bossa', operateur: 'Flooz', date: 'Hier 14:05', montant: '+20 000', isOut: false, colorIndex: 1, numero: '94567890'),
-          _TxItemClickable(initiales: 'KD', nom: 'Kofi Dossou', operateur: 'Tmoney', date: '5 avr.', montant: '-10 000', isOut: true, colorIndex: 4, numero: '91234567'),
-          _TxItemClickable(initiales: 'EK', nom: 'Edem Klu', operateur: 'Flooz', date: '3 avr.', montant: '+50 000', isOut: false, colorIndex: 5, numero: '97654321'),
-          _TxItemClickable(initiales: 'NA', nom: 'Nana Agbeko', operateur: 'Tmoney', date: '1 avr.', montant: '-7 500', isOut: true, colorIndex: 2, numero: '91112233'),
-        ])),
+        Expanded(child: _chargement
+          ? const Center(child: CircularProgressIndicator(color: kOrange, strokeWidth: 2))
+          : _txs.isEmpty
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 12),
+                Text('Aucune transaction', style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+                const SizedBox(height: 6),
+                TextButton(onPressed: _chargerTransactions, child: const Text('Actualiser', style: TextStyle(color: kOrange))),
+              ]))
+            : RefreshIndicator(
+                color: kOrange,
+                onRefresh: _chargerTransactions,
+                child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+                  ..._txs.take(5).map((t) => _TxItemClickable(
+                    initiales: t['i'], nom: t['nom'], operateur: t['op'],
+                    date: t['date'], montant: t['m'], isOut: t['out'],
+                    colorIndex: t['ci'], numero: t['num'])),
+                  if (_txs.length > 5)
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(child: GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
+                        child: const Text('Voir toutes les transactions →', style: TextStyle(color: kOrange, fontSize: 13, fontWeight: FontWeight.w500))))),
+                ]))),
       ]),
     );
   }
