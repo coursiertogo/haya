@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
 import 'feexpay_service.dart';
 
 void main() {
@@ -31,16 +34,52 @@ class HayaApp extends StatefulWidget {
 }
 
 class _HayaAppState extends State<HayaApp> {
+  static final _navigatorKey = GlobalKey<NavigatorState>();
+  late final StreamSubscription<Uri> _linkSub;
+
   @override
   void initState() {
     super.initState();
     ThemeManager.instance.addListener(() => setState(() {}));
+    _initDeepLinks();
+  }
+
+  void _initDeepLinks() {
+    final appLinks = AppLinks();
+    appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleDeepLink(uri);
+    });
+    _linkSub = appLinks.uriLinkStream.listen(_handleDeepLink);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'haya' || uri.host != 'send') return;
+    final p = uri.queryParameters;
+    final numero = p['numero'] ?? '';
+    final montant = int.tryParse(p['montant'] ?? '');
+    final operateur = p['operateur']?.isNotEmpty == true ? p['operateur'] : null;
+    final objet = p['objet']?.isNotEmpty == true ? p['objet'] : null;
+    _navigatorKey.currentState?.push(MaterialPageRoute(
+      builder: (_) => SendScreen(
+        numeroInitial: numero,
+        montantInitial: montant,
+        operateurInitial: operateur,
+        objetInitial: objet,
+      ),
+    ));
+  }
+
+  @override
+  void dispose() {
+    _linkSub.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = ThemeManager.instance.isDark;
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'haya',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -115,21 +154,51 @@ class NumerosManager {
   static String _tmoney = '';
   static String _flooz = '';
   static bool _notificationsOn = true;
+  static bool _conversionEurOn = true;
 
   static String get tmoney => _tmoney;
   static String get flooz => _flooz;
   static bool get notificationsOn => _notificationsOn;
+  static bool get conversionEurOn => _conversionEurOn;
 
-  static void setTmoney(String v) => _tmoney = v;
-  static void setFlooz(String v) => _flooz = v;
-  static void setNotifications(bool v) => _notificationsOn = v;
+  // Charger depuis SharedPreferences
+  static Future<void> charger() async {
+    final prefs = await SharedPreferences.getInstance();
+    _tmoney = prefs.getString('num_tmoney') ?? '';
+    _flooz = prefs.getString('num_flooz') ?? '';
+    _notificationsOn = prefs.getBool('notifications_on') ?? true;
+    _conversionEurOn = prefs.getBool('conversion_eur_on') ?? true;
+  }
+
+  static Future<void> setTmoney(String v) async {
+    _tmoney = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('num_tmoney', v);
+  }
+
+  static Future<void> setFlooz(String v) async {
+    _flooz = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('num_flooz', v);
+  }
+
+  static Future<void> setNotifications(bool v) async {
+    _notificationsOn = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_on', v);
+  }
+
+  static Future<void> setConversionEur(bool v) async {
+    _conversionEurOn = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('conversion_eur_on', v);
+  }
 }
 
 // ─── HAYA API SERVICE ────────────────────────────────────
 class HayaApiService {
-  // ⚠️ En local : http://localhost:3000
-  // ⚠️ En production : remplacer par l'URL Railway/Render
-  static const String _baseUrl = 'http://localhost:3000/api';
+  // ✅ Backend en production sur Render
+  static const String _baseUrl = 'https://haya-backend-vf5l.onrender.com/api';
 
   // ID utilisateur connecté — sera remplacé par le vrai ID JWT
   static int utilisateurId = 1;
@@ -227,22 +296,65 @@ class PinManager {
   static String _pin = '1234';
   static bool _pinDefini = false;
   static bool get pinDefini => _pinDefini;
-  static void definirPin(String pin) { _pin = pin; _pinDefini = true; }
+
+  static Future<void> charger() async {
+    final prefs = await SharedPreferences.getInstance();
+    _pinDefini = prefs.getBool('pin_defini') ?? false;
+    _pin = prefs.getString('pin') ?? '1234';
+  }
+
+  static Future<void> definirPin(String pin) async {
+    _pin = pin;
+    _pinDefini = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pin', pin);
+    await prefs.setBool('pin_defini', true);
+  }
+
   static bool verifierPin(String pin) => pin == _pin;
 }
 
 // ─── USER MANAGER ────────────────────────────────────────
 class UserManager {
-  static String nom = 'Koffi';
-  static String prenom = 'Ameko';
-  static String email = 'koffi.ameko@gmail.com';
-  static String telephone = '90123456';
+  static String nom = '';
+  static String prenom = '';
+  static String email = '';
+  static String telephone = '';
+  static int id = 0;
 
-  static String get nomComplet => '$prenom $nom';
+  static String get nomComplet => '$prenom $nom'.trim();
   static String get initiales {
     final n = prenom.isNotEmpty ? prenom[0].toUpperCase() : '';
     final p = nom.isNotEmpty ? nom[0].toUpperCase() : '';
     return '$n$p';
+  }
+
+  static Future<void> charger() async {
+    final prefs = await SharedPreferences.getInstance();
+    nom = prefs.getString('user_nom') ?? '';
+    prenom = prefs.getString('user_prenom') ?? '';
+    email = prefs.getString('user_email') ?? '';
+    telephone = prefs.getString('user_telephone') ?? '';
+    id = prefs.getInt('user_id') ?? 0;
+    HayaApiService.utilisateurId = id;
+  }
+
+  static Future<void> sauvegarder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_nom', nom);
+    await prefs.setString('user_prenom', prenom);
+    await prefs.setString('user_email', email);
+    await prefs.setString('user_telephone', telephone);
+    await prefs.setInt('user_id', id);
+  }
+
+  static Future<void> effacer() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_nom');
+    await prefs.remove('user_prenom');
+    await prefs.remove('user_email');
+    await prefs.remove('user_telephone');
+    await prefs.remove('user_id');
   }
 }
 
@@ -273,10 +385,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _ctrl;
   late Animation<double> _scale, _fade;
 
+  Future<void> _initialiser() async {
+    TauxChangeService.chargerTaux();
+    await PinManager.charger();
+    await NumerosManager.charger();
+    await UserManager.charger();
+  }
+
   @override
   void initState() {
     super.initState();
-    TauxChangeService.chargerTaux();
+    _initialiser();
     _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     _scale = Tween<double>(begin: 0.5, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
     _fade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
@@ -357,7 +476,7 @@ class _PinScreenState extends State<PinScreen> with SingleTickerProviderStateMix
         setState(() { _pinConfirm = _pin; _pin = ''; _confirming = true; });
       } else {
         if (_pin == _pinConfirm) {
-          PinManager.definirPin(_pin);
+          await PinManager.definirPin(_pin);
           widget.onSuccess(_pin);
         } else {
           setState(() { _pin = ''; _error = true; _confirming = false; _pinConfirm = ''; });
@@ -723,7 +842,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
                   TextButton(
-                    onPressed: () => Navigator.pushAndRemoveUntil(outerContext, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false),
+                    onPressed: () async { await UserManager.effacer(); if (!outerContext.mounted) return; Navigator.pushAndRemoveUntil(outerContext, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false); },
                     child: const Text('Déconnecter', style: TextStyle(color: kRouge, fontWeight: FontWeight.w600))),
                 ],
               ));
@@ -1048,15 +1167,52 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
   final _objetCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String _op = '';
+  String _opSelectionne = ''; // 'tmoney' ou 'flooz'
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-remplir avec le premier numero disponible dans le profil
+    if (NumerosManager.tmoney.isNotEmpty) {
+      _phoneCtrl.text = NumerosManager.tmoney;
+      _op = 'tmoney';
+      _opSelectionne = 'tmoney';
+    } else if (NumerosManager.flooz.isNotEmpty) {
+      _phoneCtrl.text = NumerosManager.flooz;
+      _op = 'flooz';
+      _opSelectionne = 'flooz';
+    }
+  }
 
   int get _montant => int.tryParse(_montantCtrl.text) ?? 0;
-  bool get _peut => _montant > 0 && _objetCtrl.text.isNotEmpty && _phoneCtrl.text.length == 8;
+  bool get _peut => _montant > 0 && _objetCtrl.text.isNotEmpty && _phoneCtrl.text.length == 8 && (_opSelectionne == 'tmoney' || _opSelectionne == 'flooz') && (NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty);
 
   String _msg() {
     final ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final eur = TauxChangeService.fcfaVersEuros(_montant);
     final opNom = _op == 'tmoney' ? 'Tmoney' : _op == 'flooz' ? 'Flooz' : 'Mobile Money';
-    return 'Demande de paiement Haya\n\nDe : ${UserManager.nomComplet}\nMontant : FCFA ${_montant.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]} ")} (~$eur EUR)\nObjet : ${_objetCtrl.text}\nOperateur : $opNom\nRef : #$ref\n\nPour payer ouvre Haya et envoie au :\n+228 ${_phoneCtrl.text}\n\nhttps://play.google.com/store/apps/details?id=com.flexix.haya';
+    final montantFmt = _montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => (m[1] ?? '') + ' ');
+
+    // Lien de paiement vers la page web Haya
+    final nomEncode = Uri.encodeComponent(UserManager.nomComplet);
+    final objetEncode = Uri.encodeComponent(_objetCtrl.text);
+    final op = _op.isEmpty ? 'tmoney' : _op;
+    final lienPaiement = 'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$ref';
+
+    final lignes = [
+      '🟠 HAYA — Demande de paiement',
+      '─────────────────────',
+      '👤 De       : ${UserManager.nomComplet}',
+      '💰 Montant : FCFA $montantFmt (~$eur EUR)',
+      '📋 Objet   : ${_objetCtrl.text}',
+      '📱 Via      : $opNom (+228 ${_phoneCtrl.text})',
+      '─────────────────────',
+      '👇 Payez en 1 clic :',
+      lienPaiement,
+      '─────────────────────',
+      'Haya · Envoie. C est parti.',
+    ];
+    return lignes.join('\n');
   }
 
   @override
@@ -1081,7 +1237,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: kTextCtx(context)),
                 decoration: const InputDecoration(hintText: '0', border: InputBorder.none), onChanged: (_) => setState(() {}))),
           ])),
-        if (_montant > 0) Padding(padding: const EdgeInsets.only(top: 6),
+        if (_montant > 0 && NumerosManager.conversionEurOn) Padding(padding: const EdgeInsets.only(top: 6),
             child: Row(children: [const Icon(Icons.euro, size: 14, color: Colors.grey), const SizedBox(width: 4), Text('~$eur EUR', style: const TextStyle(fontSize: 12, color: Colors.grey))])),
         const SizedBox(height: 16),
         Text('Objet', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
@@ -1090,37 +1246,107 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
               decoration: const InputDecoration(hintText: 'Ex: Loyer, Remboursement...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
               onChanged: (_) => setState(() {}))),
         const SizedBox(height: 16),
-        Text('Ton numero de reception', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
-        Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
-          child: Row(children: [
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
-            Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, maxLength: 8, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
-                decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none, counterText: ''),
-                onChanged: (v) => setState(() => _op = detectOperateur(v)))),
-          ])),
-        if (_op == 'tmoney') Padding(padding: const EdgeInsets.only(top: 6), child: const Text('Tmoney', style: TextStyle(color: kNuit, fontSize: 12))),
-        if (_op == 'flooz') Padding(padding: const EdgeInsets.only(top: 6), child: const Text('Flooz', style: TextStyle(color: Color(0xFF854F0B), fontSize: 12))),
+        Text('Numero de reception', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+        // Si numeros enregistres → boutons uniquement
+        if (NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty) ...[
+          Row(children: [
+            if (NumerosManager.tmoney.isNotEmpty) Expanded(child: GestureDetector(
+              onTap: () => setState(() { _phoneCtrl.text = NumerosManager.tmoney; _op = 'tmoney'; _opSelectionne = 'tmoney'; }),
+              child: Container(margin: EdgeInsets.only(right: NumerosManager.flooz.isNotEmpty ? 8.0 : 0.0, bottom: 4), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _opSelectionne == 'tmoney' ? kNuit : kCardCtx(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _opSelectionne == 'tmoney' ? kNuit : kBorderCtx(context), width: 2)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(Icons.phone_android, size: 14, color: _opSelectionne == 'tmoney' ? Colors.white : kSubtextCtx(context)),
+                    const SizedBox(width: 6),
+                    Text('Tmoney', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _opSelectionne == 'tmoney' ? Colors.white70 : kSubtextCtx(context))),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('+228 ${NumerosManager.tmoney}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _opSelectionne == 'tmoney' ? Colors.white : kTextCtx(context))),
+                ])))),
+            if (NumerosManager.flooz.isNotEmpty) Expanded(child: GestureDetector(
+              onTap: () => setState(() { _phoneCtrl.text = NumerosManager.flooz; _op = 'flooz'; _opSelectionne = 'flooz'; }),
+              child: Container(margin: const EdgeInsets.only(bottom: 4), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _opSelectionne == 'flooz' ? const Color(0xFF854F0B) : kCardCtx(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _opSelectionne == 'flooz' ? const Color(0xFF854F0B) : kBorderCtx(context), width: 2)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(Icons.phone_android, size: 14, color: _opSelectionne == 'flooz' ? Colors.white : kSubtextCtx(context)),
+                    const SizedBox(width: 6),
+                    Text('Flooz', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _opSelectionne == 'flooz' ? Colors.white70 : kSubtextCtx(context))),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('+228 ${NumerosManager.flooz}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _opSelectionne == 'flooz' ? Colors.white : kTextCtx(context))),
+                ])))),
+          ]),
+          if (_opSelectionne.isEmpty)
+            Padding(padding: const EdgeInsets.only(top: 6),
+              child: Row(children: [const Icon(Icons.info_outline, size: 14, color: kOrange), const SizedBox(width: 6),
+                Text('Selectionnez votre numero de reception', style: TextStyle(fontSize: 12, color: kOrange))])),
+        ] else ...[
+          // Aucun numero enregistre
+          Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFFFF3E0), borderRadius: BorderRadius.circular(12), border: Border.all(color: kOrange.withValues(alpha: 0.3))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [Icon(Icons.warning_amber_outlined, color: kOrange, size: 18), SizedBox(width: 8),
+                Text('Aucun numero enregistre', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kOrange))]),
+              const SizedBox(height: 6),
+              const Text('Ajoutez vos numeros Tmoney et/ou Flooz dans Parametres pour envoyer une demande.', style: TextStyle(fontSize: 12, color: Colors.black87)),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())),
+                child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(color: kOrange, borderRadius: BorderRadius.circular(8)),
+                  child: const Text('Aller dans Parametres', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)))),
+            ])),
+        ],
         if (_peut) ...[
           const SizedBox(height: 16),
           Container(width: double.infinity, padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Apercu', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextCtx(context))), const SizedBox(height: 8),
-              Text('FCFA ${_montantCtrl.text} (~$eur EUR)', style: TextStyle(fontSize: 12, color: kTextCtx(context))),
+              Text(NumerosManager.conversionEurOn ? 'FCFA ${_montantCtrl.text} (~$eur EUR)' : 'FCFA ${_montantCtrl.text}', style: TextStyle(fontSize: 12, color: kTextCtx(context))),
               Text('Objet : ${_objetCtrl.text}', style: TextStyle(fontSize: 12, color: kTextCtx(context))),
             ])),
         ],
         const SizedBox(height: 24),
-        SizedBox(width: double.infinity, height: 52,
-          child: ElevatedButton.icon(onPressed: _peut ? () => partagerWhatsApp(_msg()) : null,
-            icon: const Icon(Icons.chat, size: 18), label: const Text('Envoyer via WhatsApp', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), disabledBackgroundColor: Colors.grey.shade200, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        // Bouton principal - Voir l'apercu
+        SizedBox(width: double.infinity, height: 56,
+          child: ElevatedButton.icon(
+            onPressed: _peut ? () {
+              final ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+              final nomEncode = Uri.encodeComponent(UserManager.nomComplet);
+              final objetEncode = Uri.encodeComponent(_objetCtrl.text);
+              final op = _op.isEmpty ? 'tmoney' : _op;
+              final lien = 'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$ref&mode=preview';
+              launchUrl(Uri.parse(lien), mode: LaunchMode.externalApplication);
+            } : null,
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('Voir et partager la demande', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kNuit,
+              disabledBackgroundColor: Colors.grey.shade200,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
         const SizedBox(height: 10),
-        SizedBox(width: double.infinity, height: 52,
-          child: OutlinedButton.icon(onPressed: _peut ? () => partagerSMS(_msg()) : null,
-            icon: const Icon(Icons.sms_outlined, size: 18, color: kOrange),
-            label: const Text('Envoyer via SMS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kOrange)),
-            style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        // Boutons alternatifs
+        Row(children: [
+          Expanded(child: OutlinedButton.icon(
+            onPressed: _peut ? () => partagerWhatsApp(_msg()) : null,
+            icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+            label: const Text('WhatsApp', style: TextStyle(fontSize: 13, color: Color(0xFF25D366))),
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF25D366)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)))),
+          const SizedBox(width: 10),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: _peut ? () => partagerSMS(_msg()) : null,
+            icon: const Icon(Icons.sms_outlined, size: 16, color: kOrange),
+            label: const Text('SMS', style: TextStyle(fontSize: 13, color: kOrange)),
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: kOrange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)))),
+        ]),
         const SizedBox(height: 10),
         Center(child: Text('Le destinataire paie via Haya', style: TextStyle(fontSize: 11, color: kSubtextCtx(context)))),
       ])),
@@ -1131,21 +1357,26 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
 // ─── ÉCRAN ENVOI ─────────────────────────────────────────
 class SendScreen extends StatefulWidget {
   final String? numeroInitial;
-  const SendScreen({super.key, this.numeroInitial});
+  final int? montantInitial;
+  final String? operateurInitial;
+  final String? objetInitial;
+  const SendScreen({super.key, this.numeroInitial, this.montantInitial, this.operateurInitial, this.objetInitial});
   @override
   State<SendScreen> createState() => _SendScreenState();
 }
 
 class _SendScreenState extends State<SendScreen> {
   late final TextEditingController _phoneCtrl;
-  final _amountCtrl = TextEditingController();
+  late final TextEditingController _amountCtrl;
   String _op = '';
 
   @override
   void initState() {
     super.initState();
     _phoneCtrl = TextEditingController(text: widget.numeroInitial ?? '');
+    _amountCtrl = TextEditingController(text: widget.montantInitial != null ? widget.montantInitial.toString() : '');
     if (widget.numeroInitial != null) _op = detectOperateur(widget.numeroInitial!);
+    if (widget.operateurInitial != null) _op = widget.operateurInitial!;
   }
 
   int get _montant => int.tryParse(_amountCtrl.text) ?? 0;
@@ -1155,11 +1386,26 @@ class _SendScreenState extends State<SendScreen> {
   String get _eurTotal => _total > 0 ? TauxChangeService.fcfaVersEuros(_total) : '0.00';
   bool get _peut => _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length == 8 && (_op == 'tmoney' || _op == 'flooz') && _montant > 0;
 
-  void _confirmerPin() => Navigator.push(context, MaterialPageRoute(builder: (_) => PinScreen(
-    titre: 'Confirmer le transfert',
-    sousTitre: 'PIN pour valider\nFCFA $_montant vers +228 ${_phoneCtrl.text}',
-    onSuccess: (_) async { Navigator.pop(context); await _executer(); },
-  )));
+  void _confirmerPin() {
+    if (!PinManager.pinDefini) {
+      // Premier transfert — demander de créer un PIN
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PinScreen(
+        titre: 'Securisez vos transferts',
+        sousTitre: 'Creez un code PIN a 4 chiffres.\nCe PIN vous sera demande a chaque transfert.\nIl est different de votre mot de passe.',
+        modeDefinition: true,
+        onSuccess: (_) async {
+          Navigator.pop(context);
+          await _executer();
+        },
+      )));
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PinScreen(
+        titre: 'Confirmer le transfert',
+        sousTitre: 'PIN pour valider\nFCFA $_montant vers +228 ${_phoneCtrl.text}',
+        onSuccess: (_) async { Navigator.pop(context); await _executer(); },
+      )));
+    }
+  }
 
   Future<void> _executer() async {
     bool annule = false;
@@ -1236,40 +1482,62 @@ class _SendScreenState extends State<SendScreen> {
     return Scaffold(
       backgroundColor: kFondCtx(context),
       appBar: AppBar(backgroundColor: kNuit, elevation: 0, automaticallyImplyLeading: false,
-        title: const Text('Envoyer', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-        actions: [IconButton(icon: const Icon(Icons.people_outline, color: Colors.white),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen())))]),
+        title: const Text('Envoyer', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500))),
       body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const SizedBox(height: 8),
+        if (widget.objetInitial != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: kOrange.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: kOrange.withOpacity(0.25))),
+            child: Row(children: [
+              const Icon(Icons.receipt_outlined, color: kOrange, size: 18),
+              const SizedBox(width: 10),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Demande de paiement', style: TextStyle(fontSize: 11, color: kOrange.withOpacity(0.8))),
+                Text(widget.objetInitial!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kOrange)),
+              ]),
+            ]),
+          ),
+        ],
+        Text('Montant (FCFA)', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+        Container(decoration: BoxDecoration(color: widget.montantInitial != null ? kInputCtx(context) : kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+          child: Row(children: [
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
+            Expanded(child: TextField(controller: _amountCtrl, keyboardType: TextInputType.number, readOnly: widget.montantInitial != null,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: kTextCtx(context)),
+                decoration: const InputDecoration(hintText: '0', border: InputBorder.none), onChanged: (_) => setState(() {}))),
+            if (widget.montantInitial != null) const Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.lock_outline, size: 16, color: Colors.grey)),
+          ])),
+        if (_montant > 0 && NumerosManager.conversionEurOn) Padding(padding: const EdgeInsets.only(top: 6),
+            child: Row(children: [const Icon(Icons.euro, size: 14, color: Colors.grey), const SizedBox(width: 4), Text('~$_eur EUR', style: const TextStyle(fontSize: 12, color: Colors.grey))])),
+        if (widget.montantInitial == null) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, children: [1000, 2000, 5000, 10000, 25000].map((v) => GestureDetector(
+            onTap: () => setState(() => _amountCtrl.text = v.toString()),
+            child: Chip(label: Text(v.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} '), style: const TextStyle(fontSize: 12)),
+              backgroundColor: kCardCtx(context), side: BorderSide(color: kBorderCtx(context)), padding: EdgeInsets.zero))).toList()),
+        ],
+        const SizedBox(height: 16),
         Text('Numero du beneficiaire', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
-        Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+        Container(decoration: BoxDecoration(color: widget.numeroInitial != null ? kInputCtx(context) : kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
           child: Row(children: [
             Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
-            Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, maxLength: 8, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+            Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, maxLength: 8, readOnly: widget.numeroInitial != null, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
                 decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none, counterText: ''),
                 onChanged: (v) => setState(() => _op = detectOperateur(v)))),
+            if (widget.numeroInitial != null)
+              const Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.lock_outline, size: 16, color: Colors.grey))
+            else
+              IconButton(icon: Icon(Icons.contacts_outlined, color: kSubtextCtx(context), size: 22),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen()))),
           ])),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         if (_op == 'tmoney') _OperateurBox(nom: 'Mixx by Yas (Tmoney)', sub: 'Yas Togo', couleur: const Color(0xFFEEEDFE), bordure: const Color(0xFFAFA9EC), textColor: kNuit, logo: 'M'),
         if (_op == 'flooz') _OperateurBox(nom: 'Flooz (Moov Africa)', sub: 'Moov Africa Togo', couleur: const Color(0xFFFFF5EA), bordure: const Color(0xFFFAC775), textColor: const Color(0xFF854F0B), logo: 'F'),
         if (_op == 'inconnu') Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF0F0), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFF7C1C1))),
           child: const Row(children: [Icon(Icons.error_outline, color: kRouge, size: 20), SizedBox(width: 8), Text('Numero non reconnu', style: TextStyle(color: kRouge, fontSize: 13))])),
-        const SizedBox(height: 16),
-        Text('Montant (FCFA)', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
-        Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
-          child: Row(children: [
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
-            Expanded(child: TextField(controller: _amountCtrl, keyboardType: TextInputType.number,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: kTextCtx(context)),
-                decoration: const InputDecoration(hintText: '0', border: InputBorder.none), onChanged: (_) => setState(() {}))),
-          ])),
-        if (_montant > 0) Padding(padding: const EdgeInsets.only(top: 6),
-            child: Row(children: [const Icon(Icons.euro, size: 14, color: Colors.grey), const SizedBox(width: 4), Text('~$_eur EUR', style: const TextStyle(fontSize: 12, color: Colors.grey))])),
-        const SizedBox(height: 10),
-        Wrap(spacing: 8, children: [1000, 2000, 5000, 10000, 25000].map((v) => GestureDetector(
-          onTap: () => setState(() => _amountCtrl.text = v.toString()),
-          child: Chip(label: Text(v.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} '), style: const TextStyle(fontSize: 12)),
-            backgroundColor: kCardCtx(context), side: BorderSide(color: kBorderCtx(context)), padding: EdgeInsets.zero))).toList()),
         const SizedBox(height: 16),
         _FeeRow(label: 'Frais Haya (1%)', valeur: 'FCFA ${_frais.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}', context: context),
         const SizedBox(height: 6),
@@ -1278,7 +1546,7 @@ class _SendScreenState extends State<SendScreen> {
             Text('Total', style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('FCFA ${_total.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kTextCtx(context))),
-              if (_total > 0) Text('~$_eurTotal EUR', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              if (_total > 0 && NumerosManager.conversionEurOn) Text('~$_eurTotal EUR', style: const TextStyle(fontSize: 11, color: Colors.grey)),
             ]),
           ])),
         const SizedBox(height: 24),
@@ -1631,15 +1899,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _montantCtrl = TextEditingController();
   DateTime? _debut, _fin;
   String _nom = '', _montantQ = '';
+  bool _chargement = false;
+  List<Map<String, dynamic>> _txs = [];
 
-  final List<Map<String, dynamic>> _txs = [
-    {'i':'AK','nom':'Ama Kpodo','op':'Tmoney','date':'Auj. 10:24','m':'-5 000','mv':5000,'dv':DateTime(2026,4,18),'out':true,'ci':0,'num':'90123456'},
-    {'i':'YB','nom':'Yawa Bossa','op':'Flooz','date':'Hier 14:05','m':'+20 000','mv':20000,'dv':DateTime(2026,4,17),'out':false,'ci':1,'num':'94567890'},
-    {'i':'KD','nom':'Kofi Dossou','op':'Tmoney','date':'5 avr.','m':'-10 000','mv':10000,'dv':DateTime(2026,4,5),'out':true,'ci':4,'num':'91234567'},
-    {'i':'EK','nom':'Edem Klu','op':'Flooz','date':'3 avr.','m':'+50 000','mv':50000,'dv':DateTime(2026,4,3),'out':false,'ci':5,'num':'97654321'},
-    {'i':'NA','nom':'Nana Agbeko','op':'Tmoney','date':'1 avr.','m':'-7 500','mv':7500,'dv':DateTime(2026,4,1),'out':true,'ci':2,'num':'91112233'},
-    {'i':'PK','nom':'Papa Kojo','op':'Flooz','date':'29 mars','m':'-15 000','mv':15000,'dv':DateTime(2026,3,29),'out':true,'ci':3,'num':'94445566'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _chargerTransactions();
+  }
+
+  Future<void> _chargerTransactions() async {
+    setState(() => _chargement = true);
+    try {
+      final data = await HayaApiService.getHistorique();
+      setState(() {
+        _txs = data.map((t) {
+          final num = t['telephone_destinataire']?.toString() ?? '';
+          final initiales = num.length >= 2 ? num.substring(0, 2).toUpperCase() : 'TX';
+          final montant = (double.tryParse(t['montant']?.toString() ?? '0') ?? 0).toInt();
+          final op = (t['operateur'] ?? '').toString();
+          final dateStr = t['cree_le']?.toString() ?? '';
+          DateTime dv = DateTime.now();
+          try { dv = DateTime.parse(dateStr); } catch (_) {}
+          final now = DateTime.now();
+          String dateAff;
+          final diff = now.difference(dv);
+          if (diff.inDays == 0) dateAff = 'Auj. ${dv.hour.toString().padLeft(2,'0')}:${dv.minute.toString().padLeft(2,'0')}';
+          else if (diff.inDays == 1) dateAff = 'Hier';
+          else dateAff = '${dv.day.toString().padLeft(2,'0')}/${dv.month.toString().padLeft(2,'0')}';
+          return {
+            'i': initiales,
+            'nom': '+228 $num',
+            'op': op.isNotEmpty ? op[0].toUpperCase() + op.substring(1) : 'Mobile',
+            'date': dateAff,
+            'm': '-${montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
+            'mv': montant,
+            'dv': dv,
+            'out': true,
+            'ci': 0,
+            'num': num,
+            'ref': t['reference'] ?? '',
+          };
+        }).toList();
+      });
+    } catch (e) {
+      // Garde les transactions vides si erreur
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
 
   List<Map<String, dynamic>> get _filtered {
     var l = _txs.where((t) {
@@ -1675,7 +1983,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       backgroundColor: kFondCtx(context),
       appBar: AppBar(backgroundColor: kNuit, elevation: 0, automaticallyImplyLeading: false,
         title: const Text('Activite', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-        actions: [if (hasF) TextButton.icon(onPressed: _reset, icon: const Icon(Icons.refresh, color: kOrange, size: 16), label: const Text('Reinitialiser', style: TextStyle(color: kOrange, fontSize: 12)))]),
+        actions: [if (hasF) TextButton.icon(onPressed: _reset, icon: const Icon(Icons.clear, color: kOrange, size: 16), label: const Text('Reinitialiser', style: TextStyle(color: kOrange, fontSize: 12))), IconButton(icon: const Icon(Icons.refresh, color: Colors.white, size: 20), onPressed: _chargerTransactions)]),
       body: Column(children: [
         Container(color: kCardCtx(context), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
@@ -1724,7 +2032,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ])))),
                     ])),
         Padding(padding: const EdgeInsets.fromLTRB(16,8,16,0),
-          child: Row(children: [_StatCard('Total envoye','FCFA 37 500',kRouge), const SizedBox(width:10), _StatCard('Total recu','FCFA 70 000',kVert)])),
+          child: Row(children: [
+            _StatCard('Total envoye', 'FCFA ${_txs.where((t)=>t['out']==true).fold(0,(s,t)=>s+(t['mv'] as int)).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}', kRouge),
+            const SizedBox(width:10),
+            _StatCard('Transactions', '${_txs.length}', kNuit),
+          ])),
         Expanded(child: _filtered.isEmpty
             ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.search_off, color: Colors.grey.shade300, size: 48), const SizedBox(height: 12),
@@ -1825,42 +2137,73 @@ class _ParametresScreenState extends State<ParametresScreen> {
       isScrollControlled: true,
       backgroundColor: kCardCtx(context),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Mes numéros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
-          const SizedBox(height: 6),
-          Text('Ces numéros seront utilisés dans "Demande de paiement"', style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
-          const SizedBox(height: 20),
-          Text('Numéro Tmoney', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
-          Container(decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(context)))),
-              Expanded(child: TextField(controller: _tmoneyCtrl, keyboardType: TextInputType.phone, maxLength: 8,
-                  style: TextStyle(fontSize: 15, color: kTextCtx(context)),
-                  decoration: const InputDecoration(hintText: 'Ex: 90123456', border: InputBorder.none, counterText: ''))),
-            ])),
-          const SizedBox(height: 14),
-          Text('Numéro Flooz', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
-          Container(decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(context)))),
-              Expanded(child: TextField(controller: _floozCtrl, keyboardType: TextInputType.phone, maxLength: 8,
-                  style: TextStyle(fontSize: 15, color: kTextCtx(context)),
-                  decoration: const InputDecoration(hintText: 'Ex: 94123456', border: InputBorder.none, counterText: ''))),
-            ])),
-          const SizedBox(height: 20),
-          SizedBox(width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                NumerosManager.setTmoney(_tmoneyCtrl.text);
-                NumerosManager.setFlooz(_floozCtrl.text);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Numéros sauvegardés !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating));
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: kOrange, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Sauvegarder', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)))),
-        ]),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setM) {
+          final opTmoney = detectOperateur(_tmoneyCtrl.text);
+          final opFlooz = detectOperateur(_floozCtrl.text);
+          final tmoneyValide = _tmoneyCtrl.text.isEmpty || opTmoney == 'tmoney';
+          final floozValide = _floozCtrl.text.isEmpty || opFlooz == 'flooz';
+          final peutSauvegarder = tmoneyValide && floozValide &&
+              (_tmoneyCtrl.text.isNotEmpty || _floozCtrl.text.isNotEmpty);
+
+          return Padding(
+            padding: EdgeInsets.only(left: 20, right: 20, top: 24, bottom: MediaQuery.of(ctx).viewInsets.bottom + 24),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Mes numeros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(ctx))),
+              const SizedBox(height: 6),
+              Text('Ces numeros seront utilises dans Demande de paiement', style: TextStyle(fontSize: 12, color: kSubtextCtx(ctx))),
+              const SizedBox(height: 20),
+              // Tmoney
+              Text('Numero Tmoney', style: TextStyle(fontSize: 13, color: kSubtextCtx(ctx))), const SizedBox(height: 8),
+              Container(decoration: BoxDecoration(color: kInputCtx(ctx), borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _tmoneyCtrl.text.isNotEmpty && !tmoneyValide ? kRouge : Colors.transparent)),
+                child: Row(children: [
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(ctx)))),
+                  Expanded(child: TextField(controller: _tmoneyCtrl, keyboardType: TextInputType.phone, maxLength: 8,
+                      style: TextStyle(fontSize: 15, color: kTextCtx(ctx)),
+                      decoration: const InputDecoration(hintText: 'Ex: 90123456', border: InputBorder.none, counterText: ''),
+                      onChanged: (_) => setM(() {}))),
+                ])),
+              if (_tmoneyCtrl.text.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 5), child:
+                tmoneyValide
+                  ? const Row(children: [Icon(Icons.check_circle, color: kVert, size: 14), SizedBox(width: 4), Text('Tmoney valide', style: TextStyle(color: kVert, fontSize: 12))])
+                  : Row(children: [const Icon(Icons.error_outline, color: kRouge, size: 14), const SizedBox(width: 4), Text("Ce numero n'est pas Tmoney", style: const TextStyle(color: kRouge, fontSize: 12))])),
+              const SizedBox(height: 14),
+              // Flooz
+              Text('Numero Flooz', style: TextStyle(fontSize: 13, color: kSubtextCtx(ctx))), const SizedBox(height: 8),
+              Container(decoration: BoxDecoration(color: kInputCtx(ctx), borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _floozCtrl.text.isNotEmpty && !floozValide ? kRouge : Colors.transparent)),
+                child: Row(children: [
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('+228', style: TextStyle(fontSize: 14, color: kSubtextCtx(ctx)))),
+                  Expanded(child: TextField(controller: _floozCtrl, keyboardType: TextInputType.phone, maxLength: 8,
+                      style: TextStyle(fontSize: 15, color: kTextCtx(ctx)),
+                      decoration: const InputDecoration(hintText: 'Ex: 94123456', border: InputBorder.none, counterText: ''),
+                      onChanged: (_) => setM(() {}))),
+                ])),
+              if (_floozCtrl.text.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 5), child:
+                floozValide
+                  ? const Row(children: [Icon(Icons.check_circle, color: kVert, size: 14), SizedBox(width: 4), Text('Flooz valide', style: TextStyle(color: kVert, fontSize: 12))])
+                  : Row(children: [const Icon(Icons.error_outline, color: kRouge, size: 14), const SizedBox(width: 4), Text("Ce numero n'est pas Flooz", style: const TextStyle(color: kRouge, fontSize: 12))])),
+              const SizedBox(height: 20),
+              SizedBox(width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: peutSauvegarder ? () async {
+                    await NumerosManager.setTmoney(_tmoneyCtrl.text);
+                    await NumerosManager.setFlooz(_floozCtrl.text);
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Numeros sauvegardes !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating));
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kOrange,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('Sauvegarder', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)))),
+            ]),
+          );
+        }
       ),
     );
   }
@@ -1900,6 +2243,19 @@ class _ParametresScreenState extends State<ParametresScreen> {
           onTap: _afficherGestionNumeros,
         ),
 
+        // ── Affichage ──
+        _sectionTitre('Affichage'),
+        StatefulBuilder(builder: (context, setS) {
+          return SwitchListTile(
+            secondary: const Icon(Icons.euro_outlined, color: kOrange),
+            title: Text('Conversion EUR', style: TextStyle(color: kTextCtx(context))),
+            subtitle: Text('Afficher les equivalents en euros', style: TextStyle(color: kSubtextCtx(context))),
+            value: NumerosManager.conversionEurOn,
+            activeThumbColor: kOrange,
+            onChanged: (val) async { await NumerosManager.setConversionEur(val); setS(() {}); },
+          );
+        }),
+
         // ── Notifications ──
         _sectionTitre('Notifications'),
         SwitchListTile(
@@ -1908,7 +2264,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
           subtitle: Text('Recevoir les alertes de transfert', style: TextStyle(color: kSubtextCtx(context))),
           value: _notifications,
           activeThumbColor: kOrange,
-          onChanged: (val) { setState(() => _notifications = val); NumerosManager.setNotifications(val); },
+          onChanged: (val) async { setState(() => _notifications = val); await NumerosManager.setNotifications(val); },
         ),
 
         // ── Apparence ──
@@ -1983,90 +2339,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: kFondCtx(context),
       body: Column(children: [
-        Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0D0D2B), Color(0xFF1e1e6e)])),
+        // Header gradient
+        Container(
+          decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0D0D2B), Color(0xFF1e1e6e)])),
           padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
           child: Column(children: [
-            // ── Bouton Paramètres en haut à droite ──
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const SizedBox(width: 40),
-              Column(children: [
-                CircleAvatar(radius: 38, backgroundColor: kOrange.withValues(alpha: 0.8),
-                    child: Text(UserManager.initiales, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600))),
-                const SizedBox(height: 14),
-                Text(UserManager.nomComplet, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 5),
-                Text(UserManager.email, style: const TextStyle(color: Colors.white54, fontSize: 14)),
-              ]),
-              GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {})),
-                child: Container(padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white24)),
-                  child: const Icon(Icons.settings_outlined, color: Colors.white, size: 22)),
-              ),
-            ]),
-            const SizedBox(height: 18),
+            CircleAvatar(radius: 42, backgroundColor: kOrange.withValues(alpha: 0.85),
+                child: Text(UserManager.initiales, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700))),
+            const SizedBox(height: 14),
+            Text(UserManager.nomComplet, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text('+228 ${UserManager.telephone}', style: const TextStyle(color: Colors.white60, fontSize: 14)),
+            const SizedBox(height: 20),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _ProfilStat('47', 'Transferts'),
-              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 20)),
-              _ProfilStat('FCFA 284K', 'Envoye'),
-              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 20)),
-              _ProfilStat('${ContactsManager.contacts.length}', 'Contacts'),
+              _ProfilStat('Transferts', '—'),
+              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 24)),
+              _ProfilStat('Envoye', '—'),
+              Container(width: 1, height: 30, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 24)),
+              _ProfilStat('Contacts', '${ContactsManager.contacts.length}'),
             ]),
           ])),
-        Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
-          const Text('Informations', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
-          _ProfilRow(Icons.phone_outlined, 'Telephone', '+228 90 12 34 56'),
-          _ProfilRow(Icons.location_on_outlined, 'Pays', 'Togo / Pays-Bas'),
-          _ProfilRow(Icons.verified_outlined, 'Compte verifie', 'Oui', valueColor: kVert),
-          _ProfilRow(Icons.euro_outlined, 'Taux EUR/FCFA', '1 EUR = ${TauxChangeService.tauxEuroFcfa.toStringAsFixed(2)} FCFA'),
-          const SizedBox(height: 18),
-          const Text('Mes numéros', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
-          _ProfilRow(Icons.phone_android, 'Tmoney', NumerosManager.tmoney.isNotEmpty ? '+228 ${NumerosManager.tmoney}' : 'Non défini',
-              valueColor: NumerosManager.tmoney.isNotEmpty ? kVert : kRouge),
-          _ProfilRow(Icons.phone_android, 'Flooz', NumerosManager.flooz.isNotEmpty ? '+228 ${NumerosManager.flooz}' : 'Non défini',
-              valueColor: NumerosManager.flooz.isNotEmpty ? kVert : kRouge),
-          const SizedBox(height: 18),
-          const Text('Securite', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PinScreen(
-              titre: 'Definir le PIN', sousTitre: 'PIN a 4 chiffres pour securiser\nvos transferts',
-              onSuccess: (_) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN mis a jour !'), backgroundColor: kVert, behavior: SnackBarBehavior.floating)); },
-              modeDefinition: true))),
-            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
-              child: Row(children: [
-                const Icon(Icons.lock_outlined, size: 20, color: Colors.grey), const SizedBox(width: 14),
-                Expanded(child: Text('PIN de transfert', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
-                Text(PinManager.pinDefini ? 'Defini' : 'Non defini',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: PinManager.pinDefini ? kVert : kRouge)),
-                const SizedBox(width: 8), Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
-              ]))),
-          const SizedBox(height: 18),
-          const Text('Acces rapide', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey)), const SizedBox(height: 10),
-          // ── Bouton Paramètres dans la liste ──
-          GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {})),
-            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
-              child: Row(children: [
-                const Icon(Icons.settings_outlined, size: 20, color: Colors.grey), const SizedBox(width: 14),
-                Expanded(child: Text('Paramètres', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
-                Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
-              ]))),
-          GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen())),
-            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderCtx(context))),
-              child: Row(children: [
-                const Icon(Icons.people_outline, size: 20, color: Colors.grey), const SizedBox(width: 14),
-                Expanded(child: Text('Contacts favoris', style: TextStyle(fontSize: 14, color: kTextCtx(context)))),
-                Text('${ContactsManager.contacts.length} contacts', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context))),
-                const SizedBox(width: 8), Icon(Icons.arrow_forward_ios, size: 14, color: kSubtextCtx(context)),
-              ]))),
+        // Body
+        Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(16, 20, 16, 16), children: [
+          // Mes numeros
+          const Text('Mes numeros', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 0.5)), const SizedBox(height: 8),
+          _ProfilRow(Icons.phone_android, 'Tmoney',
+            NumerosManager.tmoney.isNotEmpty ? '+228 ${NumerosManager.tmoney}' : 'Non defini',
+            valueColor: NumerosManager.tmoney.isNotEmpty ? kVert : Colors.grey),
+          _ProfilRow(Icons.phone_android, 'Flooz',
+            NumerosManager.flooz.isNotEmpty ? '+228 ${NumerosManager.flooz}' : 'Non defini',
+            valueColor: NumerosManager.flooz.isNotEmpty ? kVert : Colors.grey),
+          const SizedBox(height: 20),
+          // Actions rapides
+          const Text('Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 0.5)), const SizedBox(height: 8),
+          _ProfilAction(Icons.settings_outlined, 'Parametres', 'PIN, numeros, apparence',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())).then((_) => setState(() {}))),
+          _ProfilAction(Icons.people_outline, 'Contacts favoris', '${ContactsManager.contacts.length} contacts enregistres',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactsScreen()))),
           const SizedBox(height: 24),
+          // Deconnexion
           SizedBox(width: double.infinity, height: 50,
-            child: OutlinedButton(onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false),
-              style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Se deconnecter', style: TextStyle(color: Colors.grey, fontSize: 15)))),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false),
+              icon: const Icon(Icons.logout, color: kRouge, size: 18),
+              label: const Text('Se deconnecter', style: TextStyle(color: kRouge, fontSize: 15)),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: kRouge), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
         ])),
       ]),
     );
@@ -2074,13 +2391,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _ProfilStat extends StatelessWidget {
-  final String valeur, label;
-  const _ProfilStat(this.valeur, this.label);
+  final String label, valeur;
+  const _ProfilStat(this.label, this.valeur);
   @override
   Widget build(BuildContext context) => Column(children: [
-    Text(valeur, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+    Text(valeur, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
     const SizedBox(height: 3), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
   ]);
+}
+
+class _ProfilAction extends StatelessWidget {
+  final IconData icon;
+  final String titre, sousTitre;
+  final VoidCallback onTap;
+  const _ProfilAction(this.icon, this.titre, this.sousTitre, {required this.onTap});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kOrange.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 20, color: kOrange)),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(titre, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextCtx(context))),
+          Text(sousTitre, style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
+        ])),
+        Icon(Icons.chevron_right, color: kSubtextCtx(context), size: 20),
+      ])));
 }
 
 class _ProfilRow extends StatelessWidget {
@@ -2105,8 +2444,105 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
+  bool _chargement = false;
+  bool _voirPass = false;
+  bool _voirPassConfirm = false;
+  String _erreur = '';
+  String _opDetecte = '';
   final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _passConfirmCtrl = TextEditingController();
+  final _nomCtrl = TextEditingController();
+  final _prenomCtrl = TextEditingController();
+
+  Future<void> _connexion() async {
+    if (_phoneCtrl.text.length < 8 || _passCtrl.text.isEmpty) {
+      setState(() => _erreur = 'Veuillez remplir tous les champs.');
+      return;
+    }
+    setState(() { _chargement = true; _erreur = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${HayaApiService._baseUrl}/auth/connexion'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'telephone': _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          'mot_de_passe': _passCtrl.text,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final user = data['utilisateur'];
+        UserManager.nom = user['nom'] ?? '';
+        UserManager.prenom = user['prenom'] ?? '';
+        UserManager.telephone = user['telephone'] ?? '';
+        UserManager.id = user['id'] ?? 0;
+        HayaApiService.utilisateurId = user['id'];
+        await UserManager.sauvegarder();
+        await NumerosManager.charger();
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(context,
+          MaterialPageRoute(builder: (_) => const MainScreen()), (r) => false);
+      } else {
+        setState(() => _erreur = data['message'] ?? 'Numero ou mot de passe incorrect.');
+      }
+    } catch (e) {
+      setState(() => _erreur = 'Impossible de contacter le serveur.');
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  Future<void> _inscription() async {
+    if (_nomCtrl.text.isEmpty || _prenomCtrl.text.isEmpty ||
+        _phoneCtrl.text.length < 8 || _passCtrl.text.length < 4) {
+      setState(() => _erreur = 'Veuillez remplir tous les champs (mot de passe min. 4 caracteres).');
+      return;
+    }
+    if (_passCtrl.text != _passConfirmCtrl.text) {
+      setState(() => _erreur = 'Les mots de passe ne correspondent pas.');
+      return;
+    }
+    if (_opDetecte != 'tmoney' && _opDetecte != 'flooz') {
+      setState(() => _erreur = 'Numero non reconnu. Utilisez un numero Tmoney ou Flooz.');
+      return;
+    }
+    setState(() { _chargement = true; _erreur = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${HayaApiService._baseUrl}/auth/inscription'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'nom': _nomCtrl.text.trim(),
+          'prenom': _prenomCtrl.text.trim(),
+          'telephone': _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          'mot_de_passe': _passCtrl.text,
+          'pin': '0000',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 201) {
+        final user = data['utilisateur'];
+        UserManager.nom = user['nom'] ?? '';
+        UserManager.prenom = user['prenom'] ?? '';
+        UserManager.telephone = user['telephone'] ?? '';
+        UserManager.id = user['id'] ?? 0;
+        HayaApiService.utilisateurId = user['id'];
+        await UserManager.sauvegarder();
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(context,
+          MaterialPageRoute(builder: (_) => const MainScreen()), (r) => false);
+      } else {
+        setState(() => _erreur = data['message'] ?? 'Erreur inscription.');
+      }
+    } catch (e) {
+      setState(() => _erreur = 'Impossible de contacter le serveur.');
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2123,39 +2559,346 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 10),
         Text("Envoie. C'est parti.", style: TextStyle(fontSize: 15, color: kSubtextCtx(context))),
         const SizedBox(height: 40),
+        // Toggle Connexion / Inscription
         Container(decoration: BoxDecoration(color: kInputCtx(context), borderRadius: BorderRadius.circular(10)),
           child: Row(children: [
-            Expanded(child: GestureDetector(onTap: ()=>setState(()=>_isLogin=true),
+            Expanded(child: GestureDetector(onTap: () => setState(() { _isLogin = true; _erreur = ''; }),
               child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(color: _isLogin ? kCardCtx(context) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
                 child: Text('Connexion', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _isLogin ? kTextCtx(context) : kSubtextCtx(context)))))),
-            Expanded(child: GestureDetector(onTap: ()=>setState(()=>_isLogin=false),
+            Expanded(child: GestureDetector(onTap: () => setState(() { _isLogin = false; _erreur = ''; }),
               child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(color: !_isLogin ? kCardCtx(context) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
                 child: Text('Inscription', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: !_isLogin ? kTextCtx(context) : kSubtextCtx(context)))))),
           ])),
         const SizedBox(height: 28),
+        // Champs inscription uniquement
+        if (!_isLogin) ...[
+          Text('Nom', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+            child: TextField(controller: _nomCtrl, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: const InputDecoration(hintText: 'Ex: Azanleko', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)))),
+          const SizedBox(height: 16),
+          Text('Prenom', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+            child: TextField(controller: _prenomCtrl, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: const InputDecoration(hintText: 'Ex: Koami', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)))),
+          const SizedBox(height: 16),
+        ],
+        // Numero
         Text('Numero', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
         Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
           child: Row(children: [
             Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text('+228', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
-            Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
-                decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none))),
+            Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, maxLength: 8, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none, counterText: ''),
+                onChanged: (v) => setState(() => _opDetecte = detectOperateur(v)))),
           ])),
+        // Indicateur operateur sur inscription
+        if (!_isLogin && _phoneCtrl.text.length >= 2) ...[
+          const SizedBox(height: 6),
+          if (_opDetecte == 'tmoney') Row(children: [const Icon(Icons.check_circle, color: kVert, size: 14), const SizedBox(width: 4), const Text('Tmoney detecte', style: TextStyle(color: kVert, fontSize: 12))]),
+          if (_opDetecte == 'flooz') Row(children: [const Icon(Icons.check_circle, color: kVert, size: 14), const SizedBox(width: 4), const Text('Flooz detecte', style: TextStyle(color: kVert, fontSize: 12))]),
+          if (_opDetecte == 'inconnu') Row(children: [const Icon(Icons.error_outline, color: kRouge, size: 14), const SizedBox(width: 4), const Text('Numero non reconnu', style: TextStyle(color: kRouge, fontSize: 12))]),
+        ],
         const SizedBox(height: 16),
+        // Mot de passe
         Text('Mot de passe', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
         Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
-          child: TextField(controller: _passCtrl, obscureText: true, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
-              decoration: const InputDecoration(hintText: '........', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)))),
+          child: TextField(controller: _passCtrl, obscureText: !_voirPass, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+              decoration: InputDecoration(
+                hintText: '........', border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                suffixIcon: IconButton(
+                  icon: Icon(_voirPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20),
+                  onPressed: () => setState(() => _voirPass = !_voirPass))))),
+        // Confirmation mot de passe sur inscription
+        if (!_isLogin) ...[
+          const SizedBox(height: 16),
+          Text('Confirmer mot de passe', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _passConfirmCtrl.text.isNotEmpty && _passCtrl.text != _passConfirmCtrl.text ? kRouge : kBorderCtx(context))),
+            child: TextField(controller: _passConfirmCtrl, obscureText: !_voirPassConfirm, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: InputDecoration(
+                  hintText: '........', border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  suffixIcon: IconButton(
+                    icon: Icon(_voirPassConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20),
+                    onPressed: () => setState(() => _voirPassConfirm = !_voirPassConfirm))),
+                onChanged: (_) => setState(() {}))),
+          if (_passConfirmCtrl.text.isNotEmpty && _passCtrl.text == _passConfirmCtrl.text)
+            const Padding(padding: EdgeInsets.only(top: 6),
+              child: Row(children: [Icon(Icons.check_circle, color: kVert, size: 14), SizedBox(width: 4), Text('Mots de passe identiques', style: TextStyle(color: kVert, fontSize: 12))])),
+        ],
+        // Message d erreur
+        if (_erreur.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF0F0), borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.error_outline, color: kRouge, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(_erreur, style: const TextStyle(color: kRouge, fontSize: 13))),
+            ])),
+        ],
         const SizedBox(height: 28),
+        // Bouton principal
         SizedBox(width: double.infinity, height: 52,
-          child: ElevatedButton(onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const MainScreen()), (r) => false),
-            style: ElevatedButton.styleFrom(backgroundColor: kNuit, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: Text(_isLogin ? 'Se connecter' : 'Creer mon compte', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)))),
+          child: ElevatedButton(
+            onPressed: _chargement ? null : () {
+              _isLogin ? _connexion() : _inscription();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kNuit,
+              disabledBackgroundColor: Colors.grey.shade300,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: _chargement
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : Text(_isLogin ? 'Se connecter' : 'Creer mon compte',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)))),
         const SizedBox(height: 18),
-        Center(child: Text(_isLogin ? "Pas encore de compte ? Inscris-toi" : "Deja un compte ? Connecte-toi",
+        Center(child: Text(_isLogin ? 'Pas encore de compte ? Inscris-toi' : 'Deja un compte ? Connecte-toi',
             style: TextStyle(fontSize: 13, color: kSubtextCtx(context)))),
+        if (_isLogin) ...[
+          const SizedBox(height: 12),
+          Center(child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MotDePasseOublieScreen())),
+            child: const Text('Mot de passe oublie ?', style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500)))),
+        ],
       ]))),
     );
   }
+}
+
+// ─── ÉCRAN MOT DE PASSE OUBLIÉ ───────────────────────────
+class MotDePasseOublieScreen extends StatefulWidget {
+  const MotDePasseOublieScreen({super.key});
+  @override
+  State<MotDePasseOublieScreen> createState() => _MotDePasseOublieScreenState();
+}
+
+class _MotDePasseOublieScreenState extends State<MotDePasseOublieScreen> {
+  int _etape = 1; // 1: telephone, 2: OTP, 3: nouveau mot de passe
+  bool _chargement = false;
+  String _erreur = '';
+  final _phoneCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _passConfirmCtrl = TextEditingController();
+  bool _voirPass = false;
+
+  Future<void> _envoyerOTP() async {
+    if (_phoneCtrl.text.length < 8) {
+      setState(() => _erreur = 'Entrez votre numero de telephone.');
+      return;
+    }
+    setState(() { _chargement = true; _erreur = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${HayaApiService._baseUrl}/auth/otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'telephone': _phoneCtrl.text.replaceAll(RegExp(r'\D'), '')}),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        setState(() => _etape = 2);
+      } else {
+        setState(() => _erreur = data['message'] ?? 'Numero non trouve.');
+      }
+    } catch (e) {
+      // Mode demo - passer directement a l etape 2
+      setState(() => _etape = 2);
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  Future<void> _verifierOTP() async {
+    if (_otpCtrl.text.length < 4) {
+      setState(() => _erreur = 'Entrez le code recu par SMS.');
+      return;
+    }
+    setState(() { _chargement = true; _erreur = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${HayaApiService._baseUrl}/auth/verifier-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'telephone': _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          'otp': _otpCtrl.text,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        setState(() => _etape = 3);
+      } else {
+        setState(() => _erreur = data['message'] ?? 'Code incorrect.');
+      }
+    } catch (e) {
+      // Mode demo
+      setState(() => _etape = 3);
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  Future<void> _reinitialiserMotDePasse() async {
+    if (_passCtrl.text.length < 4) {
+      setState(() => _erreur = 'Mot de passe min. 4 caracteres.');
+      return;
+    }
+    if (_passCtrl.text != _passConfirmCtrl.text) {
+      setState(() => _erreur = 'Les mots de passe ne correspondent pas.');
+      return;
+    }
+    setState(() { _chargement = true; _erreur = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${HayaApiService._baseUrl}/auth/reinitialiser-mot-de-passe'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'telephone': _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          'otp': _otpCtrl.text,
+          'nouveau_mot_de_passe': _passCtrl.text,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Mot de passe reinitialise ! Connectez-vous.'),
+          backgroundColor: kVert, behavior: SnackBarBehavior.floating));
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() => _erreur = data['message'] ?? 'Erreur reinitialisation.');
+      }
+    } catch (e) {
+      setState(() => _erreur = 'Impossible de contacter le serveur.');
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kFondCtx(context),
+      appBar: AppBar(
+        backgroundColor: kNuit,
+        foregroundColor: Colors.white,
+        title: const Text('Mot de passe oublie', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        elevation: 0,
+      ),
+      body: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 16),
+        // Indicateur d etapes
+        Row(children: [
+          _EtapeIndicateur(numero: 1, label: 'Telephone', actif: _etape >= 1),
+          Expanded(child: Container(height: 2, color: _etape >= 2 ? kOrange : kBorderCtx(context))),
+          _EtapeIndicateur(numero: 2, label: 'Code SMS', actif: _etape >= 2),
+          Expanded(child: Container(height: 2, color: _etape >= 3 ? kOrange : kBorderCtx(context))),
+          _EtapeIndicateur(numero: 3, label: 'Nouveau MDP', actif: _etape >= 3),
+        ]),
+        const SizedBox(height: 32),
+
+        // Etape 1 - Telephone
+        if (_etape == 1) ...[
+          Text('Votre numero de telephone', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 8),
+          Text('Nous allons envoyer un code SMS pour verifier votre identite.', style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+          const SizedBox(height: 24),
+          Text('Numero', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+            child: Row(children: [
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text('+228', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kSubtextCtx(context)))),
+              Expanded(child: TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                  decoration: const InputDecoration(hintText: 'XX XX XX XX', border: InputBorder.none))),
+            ])),
+        ],
+
+        // Etape 2 - Code OTP
+        if (_etape == 2) ...[
+          Text('Code de verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 8),
+          Text('Entrez le code a 6 chiffres envoye au +228 ${_phoneCtrl.text}', style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+          const SizedBox(height: 24),
+          Text('Code SMS', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+            child: TextField(controller: _otpCtrl, keyboardType: TextInputType.number, maxLength: 6,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kTextCtx(context), letterSpacing: 8),
+                textAlign: TextAlign.center,
+                decoration: const InputDecoration(hintText: '------', border: InputBorder.none, counterText: '', contentPadding: EdgeInsets.symmetric(vertical: 16)))),
+          const SizedBox(height: 12),
+          Center(child: GestureDetector(
+            onTap: _envoyerOTP,
+            child: const Text('Renvoyer le code', style: TextStyle(fontSize: 13, color: kOrange, fontWeight: FontWeight.w500)))),
+        ],
+
+        // Etape 3 - Nouveau mot de passe
+        if (_etape == 3) ...[
+          Text('Nouveau mot de passe', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextCtx(context))),
+          const SizedBox(height: 8),
+          Text('Choisissez un nouveau mot de passe securise.', style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+          const SizedBox(height: 24),
+          Text('Nouveau mot de passe', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderCtx(context))),
+            child: TextField(controller: _passCtrl, obscureText: !_voirPass, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: InputDecoration(hintText: '........', border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  suffixIcon: IconButton(icon: Icon(_voirPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20),
+                    onPressed: () => setState(() => _voirPass = !_voirPass))))),
+          const SizedBox(height: 16),
+          Text('Confirmer', style: TextStyle(fontSize: 13, color: kSubtextCtx(context))), const SizedBox(height: 8),
+          Container(decoration: BoxDecoration(color: kCardCtx(context), borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _passConfirmCtrl.text.isNotEmpty && _passCtrl.text != _passConfirmCtrl.text ? kRouge : kBorderCtx(context))),
+            child: TextField(controller: _passConfirmCtrl, obscureText: true, style: TextStyle(fontSize: 16, color: kTextCtx(context)),
+                decoration: const InputDecoration(hintText: '........', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                onChanged: (_) => setState(() {}))),
+          if (_passConfirmCtrl.text.isNotEmpty && _passCtrl.text == _passConfirmCtrl.text)
+            const Padding(padding: EdgeInsets.only(top: 6),
+              child: Row(children: [Icon(Icons.check_circle, color: kVert, size: 14), SizedBox(width: 4), Text('Mots de passe identiques', style: TextStyle(color: kVert, fontSize: 12))])),
+        ],
+
+        // Message d erreur
+        if (_erreur.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF0F0), borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.error_outline, color: kRouge, size: 18), const SizedBox(width: 8),
+              Expanded(child: Text(_erreur, style: const TextStyle(color: kRouge, fontSize: 13))),
+            ])),
+        ],
+
+        const SizedBox(height: 28),
+        SizedBox(width: double.infinity, height: 52,
+          child: ElevatedButton(
+            onPressed: _chargement ? null : () {
+              if (_etape == 1) _envoyerOTP();
+              else if (_etape == 2) _verifierOTP();
+              else _reinitialiserMotDePasse();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: kNuit, disabledBackgroundColor: Colors.grey.shade300, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: _chargement
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : Text(_etape == 1 ? 'Envoyer le code SMS' : _etape == 2 ? 'Verifier le code' : 'Reinitialiser le mot de passe',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)))),
+      ]))),
+    );
+  }
+}
+
+class _EtapeIndicateur extends StatelessWidget {
+  final int numero;
+  final String label;
+  final bool actif;
+  const _EtapeIndicateur({required this.numero, required this.label, required this.actif});
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, color: actif ? kOrange : kBorderCtx(context)),
+      child: Center(child: Text('$numero', style: TextStyle(color: actif ? Colors.white : kSubtextCtx(context), fontSize: 13, fontWeight: FontWeight.w600)))),
+    const SizedBox(height: 4),
+    Text(label, style: TextStyle(fontSize: 10, color: actif ? kOrange : kSubtextCtx(context))),
+  ]);
 }
