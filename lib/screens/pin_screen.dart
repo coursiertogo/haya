@@ -39,12 +39,12 @@ class _PinScreenState extends State<PinScreen>
   }
 
   void _onChiffre(String c) {
-    if (_pin.length >= 4) return;
+    if (_pin.length >= 6) return;
     setState(() {
       _pin += c;
       _error = false;
     });
-    if (_pin.length == 4) _valider();
+    if (_pin.length == 6) _valider();
   }
 
   void _effacer() {
@@ -138,11 +138,11 @@ class _PinScreenState extends State<PinScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                4,
+                6,
                 (i) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  width: 16,
-                  height: 16,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: 14,
+                  height: 14,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: i < _pin.length

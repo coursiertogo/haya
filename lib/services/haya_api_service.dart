@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class HayaApiService {
-  static const String baseUrl = 'https://haya-backend-vf5l.onrender.com/api';
+  static const String baseUrl = 'http://153.75.245.36:3000/api';
 
   static int utilisateurId = 1;
 

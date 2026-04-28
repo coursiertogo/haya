@@ -3,7 +3,7 @@ import '../constants.dart';
 import '../services/managers.dart';
 import 'contacts_screen.dart';
 import 'parametres_screen.dart';
-import 'login_screen.dart';
+import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -116,11 +116,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               height: 50,
               child: OutlinedButton.icon(
-                onPressed: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const LoginScreen()),
-                    (r) => false),
+                onPressed: () async {
+                  await UserManager.effacer();
+                  if (!context.mounted) return;
+                  Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const OnboardingScreen()),
+                      (r) => false);
+                },
                 icon: const Icon(Icons.logout,
                     color: kRouge, size: 18),
                 label: const Text('Se deconnecter',

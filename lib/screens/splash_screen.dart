@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../services/taux_change_service.dart';
 import '../services/managers.dart';
-import 'login_screen.dart';
+import 'main_screen.dart';
+import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,8 +36,14 @@ class _SplashScreenState extends State<SplashScreen>
     _ctrl.forward();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UserManager.id != 0
+                ? const MainScreen()
+                : const OnboardingScreen(),
+          ),
+        );
       }
     });
   }

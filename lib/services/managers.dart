@@ -48,25 +48,60 @@ class NumerosManager {
 
 // ─── PIN MANAGER ─────────────────────────────────────────
 class PinManager {
-  static String _pin = '1234';
+  static String _pin = '123456';
   static bool _pinDefini = false;
+  static int _tentativesEchouees = 0;
+  static DateTime? _blocageJusqua;
+
   static bool get pinDefini => _pinDefini;
+
+  static bool get estBloque {
+    if (_blocageJusqua == null) return false;
+    if (DateTime.now().isAfter(_blocageJusqua!)) {
+      _blocageJusqua = null;
+      _tentativesEchouees = 0;
+      return false;
+    }
+    return true;
+  }
+
+  static Duration get tempsBlocage {
+    if (_blocageJusqua == null) return Duration.zero;
+    final r = _blocageJusqua!.difference(DateTime.now());
+    return r.isNegative ? Duration.zero : r;
+  }
+
+  static int get tentativesRestantes =>
+      (5 - _tentativesEchouees).clamp(0, 5);
 
   static Future<void> charger() async {
     final prefs = await SharedPreferences.getInstance();
     _pinDefini = prefs.getBool('pin_defini') ?? false;
-    _pin = prefs.getString('pin') ?? '1234';
+    _pin = prefs.getString('pin') ?? '123456';
   }
 
   static Future<void> definirPin(String pin) async {
     _pin = pin;
     _pinDefini = true;
+    _tentativesEchouees = 0;
+    _blocageJusqua = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pin', pin);
     await prefs.setBool('pin_defini', true);
   }
 
-  static bool verifierPin(String pin) => pin == _pin;
+  static bool verifierPin(String pin) {
+    if (estBloque) return false;
+    if (pin == _pin) {
+      _tentativesEchouees = 0;
+      return true;
+    }
+    _tentativesEchouees++;
+    if (_tentativesEchouees >= 5) {
+      _blocageJusqua = DateTime.now().add(const Duration(seconds: 30));
+    }
+    return false;
+  }
 }
 
 // ─── USER MANAGER ────────────────────────────────────────

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "c:\\Users\\flexix\\Desktop\\haya-backend\\controllers",
+      "c:\\Users\\flexix\\Desktop\\haya-backend\\routes",
+      "c:\\Users\\flexix\\Desktop\\haya-backend",
+      "c:\\Users\\flexix\\Desktop"
+    ]
+  }
+}
