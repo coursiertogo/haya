@@ -485,10 +485,8 @@
         <p class="error-text">Ce lien de paiement est incomplet ou expiré.</p>
       </div>`;
   } else {
-    // Verifier si deja paye (localStorage)
-    const clePaiement = `haya_paye_${ref}`;
-    const dejaPaye = ref && localStorage.getItem(clePaiement);
-    const datePaiement = dejaPaye ? localStorage.getItem(clePaiement + '_date') : null;
+    const dejaPaye = false;
+    const datePaiement = null;
 
     card.innerHTML = `
       <div id="successBanner" class="success-banner">
@@ -565,7 +563,6 @@
         ${dejaPaye ? 'Déjà payé' : 'Payer avec Haya'}
       </button>
 
-      ${!dejaPaye ? `
       <button class="btn-partager" onclick="partager()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -573,7 +570,9 @@
         </svg>
         Partager cette demande
       </button>
-      ` : ''}
+      <button class="btn-partager" onclick="annuler()" style="color: var(--rouge); border-color: var(--rouge);">
+        Annuler
+      </button>
       `}
 
       <div class="app-info">
@@ -586,14 +585,6 @@
   // ─── Action payer ─────────────────────────────────────────────
   function payer() {
     const deepLink = `haya://send?numero=${numero}&montant=${montant}&operateur=${operateur}&objet=${encodeURIComponent(objet)}&ref=${ref}`;
-
-    // Sauvegarder statut payé
-    if (ref) {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('fr-FR') + ' à ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
-      localStorage.setItem(`haya_paye_${ref}`, 'true');
-      localStorage.setItem(`haya_paye_${ref}_date`, dateStr);
-    }
 
     const banner = document.getElementById('successBanner');
     if (banner) {
@@ -608,6 +599,11 @@
         window.location.href = 'https://play.google.com/store/apps/details?id=com.flexix.haya';
       }
     }, 2000);
+  }
+
+  // ─── Action annuler ───────────────────────────────────────────
+  function annuler() {
+    window.history.back();
   }
 
   // ─── Action partager ──────────────────────────────────────────

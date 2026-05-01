@@ -329,7 +329,19 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (_) =>
-                                  const ParametresScreen())),
+                                  const ParametresScreen())).then((_) {
+                        setState(() {
+                          if (NumerosManager.tmoney.isNotEmpty) {
+                            _phoneCtrl.text = NumerosManager.tmoney;
+                            _op = 'tmoney';
+                            _opSelectionne = 'tmoney';
+                          } else if (NumerosManager.flooz.isNotEmpty) {
+                            _phoneCtrl.text = NumerosManager.flooz;
+                            _op = 'flooz';
+                            _opSelectionne = 'flooz';
+                          }
+                        });
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 8),

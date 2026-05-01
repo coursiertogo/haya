@@ -91,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
           const SizedBox(height: 60),
           FadeTransition(
             opacity: _fade,
-            child: Text('Togo · Pays-Bas',
+            child: Text('Togo',
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.3), fontSize: 13)),
           ),
