@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/managers.dart';
+import '../services/haya_api_service.dart';
 import '../services/taux_change_service.dart';
 import 'parametres_screen.dart';
 
@@ -17,6 +20,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
   final _phoneCtrl = TextEditingController();
   String _op = '';
   String _opSelectionne = '';
+  String _ref = '';
 
   @override
   void initState() {
@@ -33,6 +37,23 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
   }
 
   int get _montant => int.tryParse(_montantCtrl.text) ?? 0;
+
+  Future<void> _sauvegarderDemande(String ref) async {
+    try {
+      await http.post(
+        Uri.parse('${HayaApiService.baseUrl}/demandes'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'expediteur_id': UserManager.id,
+          'telephone_destinataire': _phoneCtrl.text,
+          'montant': _montant,
+          'objet': _objetCtrl.text.trim(),
+          'operateur': _op,
+          'reference': ref,
+        }),
+      ).timeout(const Duration(seconds: 10));
+    } catch (_) {}
+  }
   bool get _peut =>
       _montant > 0 &&
       _objetCtrl.text.isNotEmpty &&
@@ -41,8 +62,10 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
       (NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty);
 
   String _msg() {
-    final ref =
-        'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    if (_ref.isEmpty) {
+      _ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    }
+    final ref = _ref;
     final eur = TauxChangeService.fcfaVersEuros(_montant);
     final opNom = _op == 'tmoney'
         ? 'Tmoney'
@@ -394,18 +417,17 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             height: 56,
             child: ElevatedButton.icon(
               onPressed: _peut
-                  ? () {
-                      final ref =
-                          'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-                      final nomEncode =
-                          Uri.encodeComponent(UserManager.nomComplet);
-                      final objetEncode =
-                          Uri.encodeComponent(_objetCtrl.text);
+                  ? () async {
+                      if (_ref.isEmpty) {
+                        _ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+                        await _sauvegarderDemande(_ref);
+                      }
+                      final nomEncode = Uri.encodeComponent(UserManager.nomComplet);
+                      final objetEncode = Uri.encodeComponent(_objetCtrl.text);
                       final op = _op.isEmpty ? 'tmoney' : _op;
                       final lien =
-                          'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$ref&mode=preview';
-                      launchUrl(Uri.parse(lien),
-                          mode: LaunchMode.externalApplication);
+                          'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$_ref&mode=preview';
+                      launchUrl(Uri.parse(lien), mode: LaunchMode.externalApplication);
                     }
                   : null,
               icon: const Icon(Icons.open_in_new, size: 18),
@@ -424,7 +446,11 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _peut ? () => partagerWhatsApp(_msg()) : null,
+                onPressed: _peut ? () async {
+                  final msg = _msg();
+                  await _sauvegarderDemande(_ref);
+                  partagerWhatsApp(msg);
+                } : null,
                 icon: const Icon(Icons.chat,
                     size: 16, color: Color(0xFF25D366)),
                 label: const Text('WhatsApp',
@@ -440,7 +466,11 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _peut ? () => partagerSMS(_msg()) : null,
+                onPressed: _peut ? () async {
+                  final msg = _msg();
+                  await _sauvegarderDemande(_ref);
+                  partagerSMS(msg);
+                } : null,
                 icon: const Icon(Icons.sms_outlined,
                     size: 16, color: kOrange),
                 label: const Text('SMS',
