@@ -7,6 +7,7 @@ import '../services/managers.dart';
 import '../services/haya_api_service.dart';
 import '../services/taux_change_service.dart';
 import 'parametres_screen.dart';
+import 'demandes_screen.dart';
 
 class PaymentRequestScreen extends StatefulWidget {
   const PaymentRequestScreen({super.key});
@@ -111,7 +112,14 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
-                  fontWeight: FontWeight.w500))),
+                  fontWeight: FontWeight.w500)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history, color: Colors.white),
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DemandesScreen())),
+            )
+          ]),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
