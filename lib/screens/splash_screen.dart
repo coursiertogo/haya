@@ -4,6 +4,7 @@ import '../services/taux_change_service.dart';
 import '../services/managers.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
+import 'lock_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,7 +27,6 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _initialiser();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200));
     _scale = Tween<double>(begin: 0.5, end: 1.0).animate(
@@ -34,18 +34,32 @@ class _SplashScreenState extends State<SplashScreen>
     _fade = Tween<double>(begin: 0.0, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
     _ctrl.forward();
-    Future.delayed(const Duration(seconds: 2), () {
+    _initialiser().then((_) => Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => UserManager.id != 0
-                ? const MainScreen()
-                : const OnboardingScreen(),
-          ),
-        );
+        if (UserManager.id != 0 && PinManager.pinDefini) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LockScreen(onDeverrouille: () {}),
+            ),
+          );
+        } else if (UserManager.id != 0) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+          );
+        }
       }
-    });
+    }));
   }
 
   @override

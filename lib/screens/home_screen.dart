@@ -320,9 +320,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.white70, fontSize: 13)),
               ]),
             ),
-            const Text('Togo · Mode local',
-                style: TextStyle(
-                    color: Colors.white38, fontSize: 12)),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(
@@ -377,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-            Text('Transactions recentes',
+            Text('Transactions récentes',
                 style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

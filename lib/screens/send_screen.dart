@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../services/managers.dart';
 import '../services/haya_api_service.dart';
@@ -13,12 +14,14 @@ class SendScreen extends StatefulWidget {
   final int? montantInitial;
   final String? operateurInitial;
   final String? objetInitial;
+  final String? refInitial;
   const SendScreen({
     super.key,
     this.numeroInitial,
     this.montantInitial,
     this.operateurInitial,
     this.objetInitial,
+    this.refInitial,
   });
   @override
   State<SendScreen> createState() => _SendScreenState();
@@ -63,9 +66,9 @@ class _SendScreenState extends State<SendScreen> {
           context,
           MaterialPageRoute(
               builder: (_) => PinScreen(
-                    titre: 'Securisez vos transferts',
+                    titre: 'Sécurisez vos transferts',
                     sousTitre:
-                        'Creez un code PIN a 4 chiffres.\nCe PIN vous sera demande a chaque transfert.\nIl est different de votre mot de passe.',
+                        'Créez un code PIN à 6 chiffres.\nCe PIN vous sera demandé à chaque transfert.\nIl est différent de votre mot de passe.',
                     modeDefinition: true,
                     onSuccess: (_) async {
                       Navigator.pop(context);
@@ -131,6 +134,14 @@ class _SendScreenState extends State<SendScreen> {
         operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz',
         reference: ref,
       );
+      if (widget.refInitial != null) {
+        HayaApiService.marquerDemandePaye(widget.refInitial!);
+        SharedPreferences.getInstance().then((prefs) {
+          final liste = prefs.getStringList('pending_to_pay') ?? [];
+          liste.remove(widget.refInitial);
+          prefs.setStringList('pending_to_pay', liste);
+        });
+      }
       Navigator.push(
           context,
           MaterialPageRoute(
@@ -159,7 +170,7 @@ class _SendScreenState extends State<SendScreen> {
                       child: const Icon(Icons.error_outline,
                           color: kRouge, size: 36)),
                   const SizedBox(height: 16),
-                  Text('Transfert echoue',
+                  Text('Transfert échoué',
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -196,7 +207,7 @@ class _SendScreenState extends State<SendScreen> {
                             backgroundColor: kNuit,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12))),
-                        child: const Text('Reessayer',
+                        child: const Text('Réessayer',
                             style: TextStyle(color: Colors.white)),
                       ),
                     ),
@@ -229,9 +240,9 @@ class _SendScreenState extends State<SendScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.08),
+                  color: kOrange.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kOrange.withOpacity(0.25))),
+                  border: Border.all(color: kOrange.withValues(alpha: 0.25))),
               child: Row(children: [
                 const Icon(Icons.receipt_outlined, color: kOrange, size: 18),
                 const SizedBox(width: 10),
@@ -239,7 +250,7 @@ class _SendScreenState extends State<SendScreen> {
                   Text('Demande de paiement',
                       style: TextStyle(
                           fontSize: 11,
-                          color: kOrange.withOpacity(0.8))),
+                          color: kOrange.withValues(alpha: 0.8))),
                   Text(widget.objetInitial!,
                       style: const TextStyle(
                           fontSize: 14,
@@ -323,7 +334,7 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ],
           const SizedBox(height: 16),
-          Text('Numero du beneficiaire',
+          Text('Numéro du bénéficiaire',
               style:
                   TextStyle(fontSize: 13, color: kSubtextCtx(context))),
           const SizedBox(height: 8),
@@ -401,7 +412,7 @@ class _SendScreenState extends State<SendScreen> {
               child: const Row(children: [
                 Icon(Icons.error_outline, color: kRouge, size: 20),
                 SizedBox(width: 8),
-                Text('Numero non reconnu',
+                Text('Numéro non reconnu',
                     style: TextStyle(color: kRouge, fontSize: 13)),
               ]),
             ),
@@ -463,7 +474,7 @@ class _SendScreenState extends State<SendScreen> {
           ),
           const SizedBox(height: 10),
           const Center(
-              child: Text('Securise par Haya · Togo',
+              child: Text('Sécurisé par Haya · Togo',
                   style: TextStyle(fontSize: 11, color: Colors.grey))),
         ]),
       ),
@@ -649,8 +660,8 @@ class _TransfertProgressDialogState
     extends State<_TransfertProgressDialog> {
   int _etape = 0;
   final _etapes = [
-    'Connexion securisee...',
-    'Verification du numero...',
+    'Connexion sécurisée...',
+    'Vérification du numéro...',
     'Traitement du paiement...',
     'Confirmation en cours...'
   ];

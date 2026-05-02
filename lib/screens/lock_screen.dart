@@ -62,7 +62,7 @@ class _LockScreenState extends State<LockScreen>
   String get _messageErreur {
     if (PinManager.estBloque) {
       final s = PinManager.tempsBlocage.inSeconds;
-      return 'Trop de tentatives. Reessaie dans $s sec.';
+      return 'Trop de tentatives. Réessaie dans $s sec.';
     }
     final r = PinManager.tentativesRestantes;
     return r > 0 ? 'PIN incorrect. $r tentative${r > 1 ? 's' : ''} restante${r > 1 ? 's' : ''}.' : 'PIN incorrect.';
@@ -86,7 +86,7 @@ class _LockScreenState extends State<LockScreen>
                   color: Colors.white, size: 32),
             ),
             const SizedBox(height: 24),
-            const Text('Application verrouillee',
+            const Text('Application verrouillée',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,

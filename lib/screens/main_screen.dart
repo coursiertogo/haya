@@ -52,7 +52,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.send_outlined), label: 'Envoyer'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.history), label: 'Activite'),
+              icon: Icon(Icons.history), label: 'Activité'),
           BottomNavigationBarItem(
               icon: Icon(Icons.person_outline), label: 'Profil'),
         ],

@@ -22,6 +22,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
   String _op = '';
   String _opSelectionne = '';
   String _ref = '';
+  bool _demandeSauvegardee = false;
 
   @override
   void initState() {
@@ -40,6 +41,8 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
   int get _montant => int.tryParse(_montantCtrl.text) ?? 0;
 
   Future<void> _sauvegarderDemande(String ref) async {
+    if (_demandeSauvegardee) return;
+    _demandeSauvegardee = true;
     try {
       await http.post(
         Uri.parse('${HayaApiService.baseUrl}/demandes'),
@@ -53,7 +56,9 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
           'reference': ref,
         }),
       ).timeout(const Duration(seconds: 10));
-    } catch (_) {}
+    } catch (_) {
+      _demandeSauvegardee = false;
+    }
   }
   bool get _peut =>
       _montant > 0 &&
@@ -75,25 +80,14 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             : 'Mobile Money';
     final montantFmt = _montant.toString().replaceAllMapped(
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => (m[1] ?? '') + ' ');
-    final nomEncode = Uri.encodeComponent(UserManager.nomComplet);
-    final objetEncode = Uri.encodeComponent(_objetCtrl.text);
-    final op = _op.isEmpty ? 'tmoney' : _op;
-    final lienPaiement =
-        'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$ref';
-    final lignes = [
-      '🟠 HAYA — Demande de paiement',
-      '─────────────────────',
-      '👤 De       : ${UserManager.nomComplet}',
-      '💰 Montant : FCFA $montantFmt (~$eur EUR)',
-      '📋 Objet   : ${_objetCtrl.text}',
-      '📱 Via      : $opNom (+228 ${_phoneCtrl.text})',
-      '─────────────────────',
-      '👇 Payez en 1 clic :',
-      lienPaiement,
-      '─────────────────────',
-      'Haya · Envoie. C est parti.',
-    ];
-    return lignes.join('\n');
+    final lienPaiement = 'https://haya.flexix.nl/pay/$ref';
+    return '💳 Demande de paiement — Haya\n\n'
+        '👤 De : ${UserManager.nomComplet}\n'
+        '💰 Montant : FCFA $montantFmt (~$eur EUR)\n'
+        '📋 Objet : ${_objetCtrl.text}\n'
+        '📱 Via : $opNom\n\n'
+        '👇 Payez en 1 clic :\n'
+        '$lienPaiement';
   }
 
   @override
@@ -120,7 +114,44 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                   MaterialPageRoute(builder: (_) => const DemandesScreen())),
             )
           ]),
-      body: SingleChildScrollView(
+      body: UserManager.nomComplet.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.person_outline, size: 56, color: kOrange),
+                  const SizedBox(height: 16),
+                  Text('Ton nom est requis',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: kTextCtx(context))),
+                  const SizedBox(height: 10),
+                  Text(
+                      'Ton nom apparaît sur les demandes de paiement. Ajoute-le avant de continuer.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ParametresScreen()),
+                      ).then((_) => setState(() {})),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: kOrange,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14))),
+                      child: const Text('Compléter mon profil',
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ]),
+              ),
+            )
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SizedBox(height: 8),
@@ -202,7 +233,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Numero de reception',
+          Text('Numéro de réception',
               style:
                   TextStyle(fontSize: 13, color: kSubtextCtx(context))),
           const SizedBox(height: 8),
@@ -324,7 +355,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                   const Icon(Icons.info_outline,
                       size: 14, color: kOrange),
                   const SizedBox(width: 6),
-                  Text('Selectionnez votre numero de reception',
+                  Text('Sélectionnez votre numéro de réception',
                       style: TextStyle(fontSize: 12, color: kOrange)),
                 ]),
               ),
@@ -343,7 +374,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                       Icon(Icons.warning_amber_outlined,
                           color: kOrange, size: 18),
                       SizedBox(width: 8),
-                      Text('Aucun numero enregistre',
+                      Text('Aucun numéro enregistré',
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -351,7 +382,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                     ]),
                     const SizedBox(height: 6),
                     const Text(
-                        'Ajoutez vos numeros Tmoney et/ou Flooz dans Parametres pour envoyer une demande.',
+                        'Ajoutez vos numéros Tmoney et/ou Flooz dans Paramètres pour envoyer une demande.',
                         style: TextStyle(
                             fontSize: 12, color: Colors.black87)),
                     const SizedBox(height: 10),
@@ -379,7 +410,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                         decoration: BoxDecoration(
                             color: kOrange,
                             borderRadius: BorderRadius.circular(8)),
-                        child: const Text('Aller dans Parametres',
+                        child: const Text('Aller dans Paramètres',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -430,11 +461,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                         _ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
                         await _sauvegarderDemande(_ref);
                       }
-                      final nomEncode = Uri.encodeComponent(UserManager.nomComplet);
-                      final objetEncode = Uri.encodeComponent(_objetCtrl.text);
-                      final op = _op.isEmpty ? 'tmoney' : _op;
-                      final lien =
-                          'https://haya.flexix.nl/pay.html?n=${_phoneCtrl.text}&m=$_montant&nom=$nomEncode&obj=$objetEncode&op=$op&ref=$_ref&mode=preview';
+                      final lien = 'https://haya.flexix.nl/pay/$_ref?preview=1';
                       launchUrl(Uri.parse(lien), mode: LaunchMode.externalApplication);
                     }
                   : null,

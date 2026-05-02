@@ -15,6 +15,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
   bool _notifications = true;
   final _tmoneyCtrl = TextEditingController();
   final _floozCtrl = TextEditingController();
+  final _nomCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -22,12 +23,14 @@ class _ParametresScreenState extends State<ParametresScreen> {
     _tmoneyCtrl.text = NumerosManager.tmoney;
     _floozCtrl.text = NumerosManager.flooz;
     _notifications = NumerosManager.notificationsOn;
+    _nomCtrl.text = UserManager.nomComplet;
   }
 
   @override
   void dispose() {
     _tmoneyCtrl.dispose();
     _floozCtrl.dispose();
+    _nomCtrl.dispose();
     super.dispose();
   }
 
@@ -271,11 +274,56 @@ class _ParametresScreenState extends State<ParametresScreen> {
             onPressed: () => Navigator.pop(context)),
       ),
       body: ListView(children: [
+        _sectionTitre('Mon profil'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                    color: kCardCtx(context),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kBorderCtx(context))),
+                child: TextField(
+                  controller: _nomCtrl,
+                  style: TextStyle(fontSize: 15, color: kTextCtx(context)),
+                  decoration: InputDecoration(
+                      hintText: 'Ton nom ou nom d\'entreprise',
+                      hintStyle: TextStyle(color: kSubtextCtx(context)),
+                      prefixIcon: Icon(Icons.person_outline, color: kOrange),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () async {
+                final nom = _nomCtrl.text.trim();
+                if (nom.isEmpty) return;
+                UserManager.prenom = nom;
+                UserManager.nom = '';
+                await UserManager.sauvegarder();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Nom mis à jour !'),
+                    backgroundColor: kVert,
+                    behavior: SnackBarBehavior.floating));
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: kOrange,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+              child: const Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
+          ]),
+        ),
         _sectionTitre('Sécurité'),
         _tuile(
           icon: Icons.lock_outline,
           titre: 'Changer le PIN',
-          sousTitre: 'Modifier votre code PIN à 4 chiffres',
+          sousTitre: 'Modifier votre code PIN à 6 chiffres',
           onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -311,7 +359,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
                 const Icon(Icons.euro_outlined, color: kOrange),
             title: Text('Conversion EUR',
                 style: TextStyle(color: kTextCtx(context))),
-            subtitle: Text('Afficher les equivalents en euros',
+            subtitle: Text('Afficher les équivalents en euros',
                 style: TextStyle(color: kSubtextCtx(context))),
             value: NumerosManager.conversionEurOn,
             activeThumbColor: kOrange,

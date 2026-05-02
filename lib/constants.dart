@@ -7,7 +7,7 @@ class ThemeManager extends ChangeNotifier {
   static ThemeManager get instance => _instance;
   ThemeManager._();
 
-  bool _isDark = false;
+  bool _isDark = true;
   bool get isDark => _isDark;
 
   void toggle() {
@@ -21,9 +21,9 @@ const kNuit = Color(0xFF0D0D2B);
 const kOrange = Color(0xFFF97316);
 const kVert = Color(0xFF1D9E75);
 const kFond = Color(0xFFF5F4FF);
-const kFondDark = Color(0xFF121212);
+const kFondDark = Color(0xFF0D0D2B);
 const kRouge = Color(0xFFE24B4A);
-const kCardDark = Color(0xFF1E1E1E);
+const kCardDark = Color(0xFF1A1A3E);
 
 Color kFondCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kFondDark : kFond;
 Color kCardCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kCardDark : Colors.white;
