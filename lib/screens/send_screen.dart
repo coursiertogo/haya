@@ -359,8 +359,7 @@ class _SendScreenState extends State<SendScreen> {
                   keyboardType: TextInputType.phone,
                   maxLength: 8,
                   readOnly: widget.numeroInitial != null,
-                  style:
-                      TextStyle(fontSize: 16, color: kTextCtx(context)),
+                  style: TextStyle(fontSize: 19, color: kTextCtx(context)),
                   decoration: const InputDecoration(
                       hintText: 'XX XX XX XX',
                       border: InputBorder.none,
@@ -376,8 +375,8 @@ class _SendScreenState extends State<SendScreen> {
                         size: 16, color: Colors.grey))
               else
                 IconButton(
-                  icon: Icon(Icons.contacts_outlined,
-                      color: kSubtextCtx(context), size: 22),
+                  icon: const Icon(Icons.contacts_outlined,
+                      color: kOrange, size: 22),
                   onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -386,22 +385,43 @@ class _SendScreenState extends State<SendScreen> {
             ]),
           ),
           const SizedBox(height: 8),
-          if (_op == 'tmoney')
-            _OperateurBox(
-                nom: 'Mixx by Yas (Tmoney)',
-                sub: 'Yas Togo',
-                couleur: const Color(0xFFEEEDFE),
-                bordure: const Color(0xFFAFA9EC),
-                textColor: kNuit,
-                logo: 'M'),
-          if (_op == 'flooz')
-            _OperateurBox(
-                nom: 'Flooz (Moov Africa)',
-                sub: 'Moov Africa Togo',
-                couleur: const Color(0xFFFFF5EA),
-                bordure: const Color(0xFFFAC775),
-                textColor: const Color(0xFF854F0B),
-                logo: 'F'),
+          if (_op == 'tmoney' || _op == 'flooz')
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 2),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: _op == 'tmoney'
+                          ? const Color(0xFFEEEDFE)
+                          : const Color(0xFFFFF5EA),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: _op == 'tmoney'
+                              ? const Color(0xFFAFA9EC)
+                              : const Color(0xFFFAC775))),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: 18, height: 18,
+                      decoration: BoxDecoration(
+                          color: _op == 'tmoney' ? kNuit : const Color(0xFF854F0B),
+                          borderRadius: BorderRadius.circular(5)),
+                      child: Center(
+                        child: Text(_op == 'tmoney' ? 'M' : 'F',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                        _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _op == 'tmoney' ? kNuit : const Color(0xFF854F0B))),
+                  ]),
+                ),
+              ]),
+            ),
           if (_op == 'inconnu')
             Container(
               padding: const EdgeInsets.all(12),
@@ -425,23 +445,19 @@ class _SendScreenState extends State<SendScreen> {
           ),
           const SizedBox(height: 6),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-                color: kInputCtx(context),
-                borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Total',
                       style: TextStyle(
-                          fontSize: 12, color: kSubtextCtx(context))),
+                          fontSize: 14, color: kSubtextCtx(context))),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                     Text(
                         'FCFA ${_total.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
                         style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
                             color: kTextCtx(context))),
                     if (_total > 0 && NumerosManager.conversionEurOn)
                       Text('~$_eurTotal EUR',
@@ -457,8 +473,13 @@ class _SendScreenState extends State<SendScreen> {
             child: ElevatedButton(
               onPressed: _peut ? _confirmerPin : null,
               style: ElevatedButton.styleFrom(
-                  backgroundColor: kNuit,
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.transparent
+                      : kNuit,
                   disabledBackgroundColor: Colors.grey.shade200,
+                  side: Theme.of(context).brightness == Brightness.dark
+                      ? BorderSide(color: _peut ? kOrange : Colors.grey.shade700, width: 2)
+                      : BorderSide.none,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12))),
               child: Text(
@@ -466,9 +487,11 @@ class _SendScreenState extends State<SendScreen> {
                     ? 'Envoyer via ${_op == "tmoney" ? "Tmoney" : "Flooz"}'
                     : 'Confirmer le transfert',
                 style: TextStyle(
-                    color: _peut ? Colors.white : Colors.grey,
+                    color: _peut
+                        ? (Theme.of(context).brightness == Brightness.dark ? kOrange : Colors.white)
+                        : Colors.grey,
                     fontSize: 16,
-                    fontWeight: FontWeight.w500),
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -743,49 +766,6 @@ class _TransfertProgressDialogState
 }
 
 // ─── WIDGETS INTERNES ────────────────────────────────────
-class _OperateurBox extends StatelessWidget {
-  final String nom, sub, logo;
-  final Color couleur, bordure, textColor;
-  const _OperateurBox({
-    required this.nom,
-    required this.sub,
-    required this.logo,
-    required this.couleur,
-    required this.bordure,
-    required this.textColor,
-  });
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: couleur,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: bordure)),
-        child: Row(children: [
-          Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                  color: textColor, borderRadius: BorderRadius.circular(9)),
-              child: Center(
-                  child: Text(logo,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500)))),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(nom,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: textColor)),
-            Text(sub, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
-        ]),
-      );
-}
 
 class _FeeRow extends StatelessWidget {
   final String label, valeur;
@@ -794,10 +774,7 @@ class _FeeRow extends StatelessWidget {
       {required this.label, required this.valeur, required this.context});
   @override
   Widget build(BuildContext ctx) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-            color: kInputCtx(context),
-            borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label,
               style:

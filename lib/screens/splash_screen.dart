@@ -22,6 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
     await PinManager.charger();
     await NumerosManager.charger();
     await UserManager.charger();
+    await ContactsManager.charger();
   }
 
   @override

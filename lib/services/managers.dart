@@ -6,7 +6,7 @@ class NumerosManager {
   static String _tmoney = '';
   static String _flooz = '';
   static bool _notificationsOn = true;
-  static bool _conversionEurOn = true;
+  static bool _conversionEurOn = false;
 
   static String get tmoney => _tmoney;
   static String get flooz => _flooz;
@@ -18,7 +18,7 @@ class NumerosManager {
     _tmoney = prefs.getString('num_tmoney') ?? '';
     _flooz = prefs.getString('num_flooz') ?? '';
     _notificationsOn = prefs.getBool('notifications_on') ?? true;
-    _conversionEurOn = prefs.getBool('conversion_eur_on') ?? true;
+    _conversionEurOn = prefs.getBool('conversion_eur_on') ?? false;
   }
 
   static Future<void> setTmoney(String v) async {
@@ -111,6 +111,7 @@ class UserManager {
   static String email = '';
   static String telephone = '';
   static int id = 0;
+  static String token = '';
 
   static String get nomComplet => '$prenom $nom'.trim();
   static String get initiales {
@@ -126,7 +127,9 @@ class UserManager {
     email = prefs.getString('user_email') ?? '';
     telephone = prefs.getString('user_telephone') ?? '';
     id = prefs.getInt('user_id') ?? 0;
+    token = prefs.getString('user_token') ?? '';
     HayaApiService.utilisateurId = id;
+    HayaApiService.token = token;
   }
 
   static Future<void> sauvegarder() async {
@@ -136,6 +139,7 @@ class UserManager {
     await prefs.setString('user_email', email);
     await prefs.setString('user_telephone', telephone);
     await prefs.setInt('user_id', id);
+    await prefs.setString('user_token', token);
   }
 
   static Future<void> effacer() async {
@@ -145,6 +149,9 @@ class UserManager {
     await prefs.remove('user_email');
     await prefs.remove('user_telephone');
     await prefs.remove('user_id');
+    await prefs.remove('user_token');
+    token = '';
+    HayaApiService.token = '';
   }
 }
 
@@ -161,10 +168,30 @@ class Contact {
 }
 
 class ContactsManager {
-  static final List<Contact> contacts = [
-    Contact(nom: 'Ama Kpodo', numero: '90123456', operateur: 'tmoney', colorIndex: 0),
-    Contact(nom: 'Yawa Bossa', numero: '94567890', operateur: 'flooz', colorIndex: 1),
-    Contact(nom: 'Kofi Dossou', numero: '91234567', operateur: 'tmoney', colorIndex: 4),
-    Contact(nom: 'Edem Klu', numero: '97654321', operateur: 'flooz', colorIndex: 5),
-  ];
+  static final List<Contact> contacts = [];
+
+  static Future<void> charger() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getStringList('contacts') ?? [];
+    contacts.clear();
+    for (final s in data) {
+      final parts = s.split('|');
+      if (parts.length == 4) {
+        contacts.add(Contact(
+          nom: parts[0],
+          numero: parts[1],
+          operateur: parts[2],
+          colorIndex: int.tryParse(parts[3]) ?? 0,
+        ));
+      }
+    }
+  }
+
+  static Future<void> sauvegarder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'contacts',
+      contacts.map((c) => '${c.nom}|${c.numero}|${c.operateur}|${c.colorIndex}').toList(),
+    );
+  }
 }

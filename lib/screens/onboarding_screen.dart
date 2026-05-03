@@ -74,6 +74,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         _telSauvegarde = tel;
+        // Sauvegarder le token si présent (utilisateur existant)
+        if (data['token'] != null) {
+          UserManager.token = data['token'];
+          HayaApiService.token = data['token'];
+        }
         _allerVersPIN();
       } else {
         setState(() => _erreur = data['message'] ?? 'Code incorrect.');
@@ -105,9 +110,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             await UserManager.sauvegarder();
             _inscrireBackend();
             if (!mounted) return;
-            Navigator.pushReplacement(
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const MainScreen()),
+              (route) => false,
             );
           },
         ),
@@ -150,10 +156,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           titre: 'Ton PIN',
           sousTitre: 'Entre ton PIN pour accéder à Haya.',
           modeDefinition: false,
-          onSuccess: (_) => Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          ),
+          onSuccess: (_) async {
+            // Récupérer le token en arrière-plan
+            final result = await HayaApiService.inscrireUtilisateur(
+              prenom: UserManager.prenom,
+              telephone: UserManager.telephone,
+            );
+            if (result != null) {
+              UserManager.id = result['id'] ?? UserManager.id;
+              HayaApiService.utilisateurId = UserManager.id;
+              UserManager.token = HayaApiService.token;
+              await UserManager.sauvegarder();
+            }
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const MainScreen()),
+              (route) => false,
+            );
+          },
         ),
       ),
     );
@@ -268,7 +289,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ─── ÉTAPE 2 — Nom ────────────────────────────────────
   Widget _buildNom() {
-    final peut = _nomCtrl.text.trim().isNotEmpty;
+    final valeur = _nomCtrl.text.trim();
+    final contientLettre = valeur.isNotEmpty &&
+        valeur.contains(RegExp(r'[a-zA-ZÀ-ÿ]'));
+    final peut = contientLettre;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Ton nom ou entreprise',
           style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
@@ -278,6 +302,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       const SizedBox(height: 40),
       _Champ(label: 'Nom complet ou entreprise', hint: 'Koami Azanleko',
           controller: _nomCtrl, onChanged: (_) => setState(() {})),
+      if (valeur.isNotEmpty && !contientLettre)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('Le nom doit contenir au moins une lettre.',
+              style: TextStyle(color: kRouge.withValues(alpha: 0.9), fontSize: 12)),
+        ),
       const SizedBox(height: 48),
       SizedBox(
         width: double.infinity, height: 58,

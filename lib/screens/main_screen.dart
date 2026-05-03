@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import 'home_screen.dart';
-import 'send_screen.dart';
+import 'demandes_screen.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
 
@@ -20,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _screens = [
       HomeScreen(onGoToProfile: () => changerOnglet(3)),
-      const SendScreen(),
+      const DemandesScreen(),
       const HistoryScreen(),
       const ProfileScreen(),
     ];
@@ -50,7 +50,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined), label: 'Accueil'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.send_outlined), label: 'Envoyer'),
+              icon: Icon(Icons.request_page_outlined), label: 'Demandes'),
           BottomNavigationBarItem(
               icon: Icon(Icons.history), label: 'Activité'),
           BottomNavigationBarItem(

@@ -44,12 +44,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               _OperateurTab(
                   label: 'Tmoney',
                   isActive: _op == 'tmoney',
-                  couleur: const Color(0xFF3C3489),
+                  couleur: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF9B96E8)
+                      : const Color(0xFF3C3489),
                   onTap: () => setState(() => _op = 'tmoney')),
               _OperateurTab(
                   label: 'Flooz',
                   isActive: _op == 'flooz',
-                  couleur: const Color(0xFF854F0B),
+                  couleur: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFD4924A)
+                      : const Color(0xFF854F0B),
                   onTap: () => setState(() => _op = 'flooz')),
             ]),
           ),
@@ -92,11 +96,11 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                           : const Color(0xFF854F0B))),
               const SizedBox(height: 20),
               Text('+228 $_num',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1,
-                      color: kNuit)),
+                      color: kTextCtx(context))),
               const SizedBox(height: 4),
               Text(UserManager.nomComplet,
                   style: const TextStyle(
@@ -111,7 +115,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: '+228 $_num'));
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: const Text('Numero copie !'),
+                    content: const Text('Numéro copié !'),
                     backgroundColor: kVert,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(

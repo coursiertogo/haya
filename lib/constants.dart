@@ -17,20 +17,28 @@ class ThemeManager extends ChangeNotifier {
 }
 
 // ─── COULEURS ────────────────────────────────────────────
-const kNuit = Color(0xFF0D0D2B);
-const kOrange = Color(0xFFF97316);
-const kVert = Color(0xFF1D9E75);
-const kFond = Color(0xFFF5F4FF);
-const kFondDark = Color(0xFF0D0D2B);
-const kRouge = Color(0xFFE24B4A);
-const kCardDark = Color(0xFF1A1A3E);
+const kNuit     = Color(0xFF0D0D2B);
+const kOrange   = Color(0xFFF97316);
+const kVert     = Color(0xFF1D9E75);
+const kRouge    = Color(0xFFE24B4A);
 
-Color kFondCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kFondDark : kFond;
-Color kCardCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kCardDark : Colors.white;
-Color kTextCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87;
-Color kSubtextCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white60 : Colors.grey;
-Color kBorderCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? Colors.white12 : Colors.grey.shade200;
-Color kInputCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2A2A) : Colors.grey.shade100;
+// Mode clair — Blanc Pur
+const kFond     = Color(0xFFF8F9FA);
+const kCardLight = Color(0xFFFFFFFF);
+
+// Mode sombre — Bleu Nuit amélioré
+const kFondDark  = Color(0xFF080818);
+const kCardDark  = Color(0xFF141430);
+const kInputDark = Color(0xFF1E1E45);
+const kBordDark  = Color(0xFF35356A);
+const kSubDark   = Color(0xFF9999BB);
+
+Color kFondCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kFondDark   : kFond;
+Color kCardCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kCardDark   : kCardLight;
+Color kTextCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF111827);
+Color kSubtextCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kSubDark    : const Color(0xFF6B7280);
+Color kBorderCtx(BuildContext context)  => Theme.of(context).brightness == Brightness.dark ? kBordDark   : const Color(0xFFE5E7EB);
+Color kInputCtx(BuildContext context)   => Theme.of(context).brightness == Brightness.dark ? kInputDark  : const Color(0xFFF3F4F6);
 
 const avatarColors = [
   Color(0xFFEEEDFE), Color(0xFFD7F3EA), Color(0xFFFAEEDA),

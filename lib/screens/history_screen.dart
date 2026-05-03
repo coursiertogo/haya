@@ -150,7 +150,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           backgroundColor: kNuit,
           elevation: 0,
           automaticallyImplyLeading: false,
-          title: const Text('Activite',
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context))
+              : null,
+          title: const Text('Activité',
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -160,7 +165,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               TextButton.icon(
                   onPressed: _reset,
                   icon: const Icon(Icons.clear, color: kOrange, size: 16),
-                  label: const Text('Reinitialiser',
+                  label: const Text('Réinitialiser',
                       style: TextStyle(color: kOrange, fontSize: 12))),
             IconButton(
                 icon: const Icon(Icons.refresh,
@@ -182,7 +187,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   (v) => setState(() => _filtre = v)),
               _FiltreBtn('Envois', 'envois', _filtre,
                   (v) => setState(() => _filtre = v)),
-              _FiltreBtn('Recus', 'recus', _filtre,
+              _FiltreBtn('Reçus', 'recus', _filtre,
                   (v) => setState(() => _filtre = v)),
             ]),
           ),
@@ -289,17 +294,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icon(Icons.calendar_today_outlined,
                                   size: 16,
                                   color: _debut != null
-                                      ? kNuit
+                                      ? kOrange
                                       : Colors.grey),
                               const SizedBox(width: 8),
                               Text(
                                   _debut != null
                                       ? 'De : ${_fmt(_debut!)}'
-                                      : 'Date debut',
+                                      : 'Date début',
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: _debut != null
-                                          ? kNuit
+                                          ? kTextCtx(context)
                                           : Colors.grey)),
                               if (_debut != null) ...[
                                 const Spacer(),
@@ -329,17 +334,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icon(Icons.calendar_today_outlined,
                                   size: 16,
                                   color: _fin != null
-                                      ? kNuit
+                                      ? kOrange
                                       : Colors.grey),
                               const SizedBox(width: 8),
                               Text(
                                   _fin != null
-                                      ? 'A : ${_fmt(_fin!)}'
+                                      ? 'À : ${_fmt(_fin!)}'
                                       : 'Date fin',
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: _fin != null
-                                          ? kNuit
+                                          ? kTextCtx(context)
                                           : Colors.grey)),
                               if (_fin != null) ...[
                                 const Spacer(),
@@ -360,11 +365,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(children: [
             _StatCard(
-                'Total envoye',
+                'Total envoyé',
                 'FCFA ${_txs.where((t) => t['out'] == true).fold(0, (s, t) => s + (t['mv'] as int)).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
                 kRouge),
             const SizedBox(width: 10),
-            _StatCard('Transactions', '${_txs.length}', kNuit),
+            _StatCard('Transactions', '${_txs.length}', kOrange),
           ]),
         ),
         Expanded(
@@ -381,13 +386,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Icon(Icons.search_off,
                             color: Colors.grey.shade300, size: 48),
                         const SizedBox(height: 12),
-                        const Text('Aucun resultat',
+                        const Text('Aucun résultat',
                             style: TextStyle(
                                 color: Colors.grey, fontSize: 14)),
                         const SizedBox(height: 6),
                         TextButton(
                             onPressed: _reset,
-                            child: const Text('Reinitialiser',
+                            child: const Text('Réinitialiser',
                                 style: TextStyle(color: kOrange))),
                       ]))
                   : ListView.builder(

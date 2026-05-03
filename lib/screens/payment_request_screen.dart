@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/managers.dart';
@@ -40,25 +38,30 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
 
   int get _montant => int.tryParse(_montantCtrl.text) ?? 0;
 
-  Future<void> _sauvegarderDemande(String ref) async {
-    if (_demandeSauvegardee) return;
+  Future<bool> _sauvegarderDemande(String ref) async {
+    if (_demandeSauvegardee) return true;
     _demandeSauvegardee = true;
-    try {
-      await http.post(
-        Uri.parse('${HayaApiService.baseUrl}/demandes'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'expediteur_id': UserManager.id,
-          'telephone_destinataire': _phoneCtrl.text,
-          'montant': _montant,
-          'objet': _objetCtrl.text.trim(),
-          'operateur': _op,
-          'reference': ref,
-        }),
-      ).timeout(const Duration(seconds: 10));
-    } catch (_) {
-      _demandeSauvegardee = false;
+    // S'assurer que l'utilisateur existe en backend
+    if (UserManager.id <= 1 || HayaApiService.token.isEmpty) {
+      final result = await HayaApiService.inscrireUtilisateur(
+        prenom: UserManager.prenom,
+        telephone: UserManager.telephone,
+      );
+      if (result != null) {
+        UserManager.id = result['id'] ?? 1;
+        HayaApiService.utilisateurId = UserManager.id;
+        await UserManager.sauvegarder();
+      }
     }
+    final ok = await HayaApiService.creerDemande(
+      telephone: _phoneCtrl.text,
+      montant: _montant,
+      objet: _objetCtrl.text.trim(),
+      operateur: _op,
+      reference: ref,
+    );
+    if (!ok) _demandeSauvegardee = false;
+    return ok;
   }
   bool get _peut =>
       _montant > 0 &&
@@ -155,20 +158,12 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-                color: const Color(0xFFE7F6EF),
-                borderRadius: BorderRadius.circular(12)),
-            child: const Row(children: [
-              Icon(Icons.info_outline, color: kVert, size: 20),
-              SizedBox(width: 10),
-              Expanded(
-                  child: Text(
-                      'Envoie une demande. Le destinataire paie via Haya !',
-                      style: TextStyle(fontSize: 13, color: kVert))),
-            ]),
-          ),
+          Row(children: [
+            const Icon(Icons.info_outline, color: kVert, size: 16),
+            const SizedBox(width: 8),
+            Text('Envoie une demande. Le destinataire paie via Haya !',
+                style: TextStyle(fontSize: 13, color: kVert)),
+          ]),
           const SizedBox(height: 20),
           Text('Montant (FCFA)',
               style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
@@ -196,7 +191,10 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                       color: kTextCtx(context)),
                   decoration: const InputDecoration(
                       hintText: '0', border: InputBorder.none),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => setState(() {
+                    _ref = '';
+                    _demandeSauvegardee = false;
+                  }),
                 ),
               ),
             ]),
@@ -229,7 +227,10 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                   border: InputBorder.none,
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() {
+                _ref = '';
+                _demandeSauvegardee = false;
+              }),
             ),
           ),
           const SizedBox(height: 16),
@@ -240,120 +241,42 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
           if (NumerosManager.tmoney.isNotEmpty ||
               NumerosManager.flooz.isNotEmpty) ...[
             Row(children: [
-              if (NumerosManager.tmoney.isNotEmpty)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() {
-                      _phoneCtrl.text = NumerosManager.tmoney;
-                      _op = 'tmoney';
-                      _opSelectionne = 'tmoney';
-                    }),
-                    child: Container(
-                      margin: EdgeInsets.only(
-                          right:
-                              NumerosManager.flooz.isNotEmpty ? 8.0 : 0.0,
-                          bottom: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
-                      decoration: BoxDecoration(
-                          color: _opSelectionne == 'tmoney'
-                              ? kNuit
-                              : kCardCtx(context),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: _opSelectionne == 'tmoney'
-                                  ? kNuit
-                                  : kBorderCtx(context),
-                              width: 2)),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              Icon(Icons.phone_android,
-                                  size: 14,
-                                  color: _opSelectionne == 'tmoney'
-                                      ? Colors.white
-                                      : kSubtextCtx(context)),
-                              const SizedBox(width: 6),
-                              Text('Tmoney',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _opSelectionne == 'tmoney'
-                                          ? Colors.white70
-                                          : kSubtextCtx(context))),
-                            ]),
-                            const SizedBox(height: 4),
-                            Text('+228 ${NumerosManager.tmoney}',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: _opSelectionne == 'tmoney'
-                                        ? Colors.white
-                                        : kTextCtx(context))),
-                          ]),
-                    ),
-                  ),
+              if (NumerosManager.tmoney.isNotEmpty) ...[
+                _ChipOperateur(
+                  label: 'Tmoney',
+                  numero: NumerosManager.tmoney,
+                  logo: 'M',
+                  isSelected: _opSelectionne == 'tmoney',
+                  activeColor: kNuit,
+                  onTap: () => setState(() {
+                    _phoneCtrl.text = NumerosManager.tmoney;
+                    _op = 'tmoney';
+                    _opSelectionne = 'tmoney';
+                  }),
+                  context: context,
                 ),
+                if (NumerosManager.flooz.isNotEmpty) const SizedBox(width: 8),
+              ],
               if (NumerosManager.flooz.isNotEmpty)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() {
-                      _phoneCtrl.text = NumerosManager.flooz;
-                      _op = 'flooz';
-                      _opSelectionne = 'flooz';
-                    }),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
-                      decoration: BoxDecoration(
-                          color: _opSelectionne == 'flooz'
-                              ? const Color(0xFF854F0B)
-                              : kCardCtx(context),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: _opSelectionne == 'flooz'
-                                  ? const Color(0xFF854F0B)
-                                  : kBorderCtx(context),
-                              width: 2)),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              Icon(Icons.phone_android,
-                                  size: 14,
-                                  color: _opSelectionne == 'flooz'
-                                      ? Colors.white
-                                      : kSubtextCtx(context)),
-                              const SizedBox(width: 6),
-                              Text('Flooz',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _opSelectionne == 'flooz'
-                                          ? Colors.white70
-                                          : kSubtextCtx(context))),
-                            ]),
-                            const SizedBox(height: 4),
-                            Text('+228 ${NumerosManager.flooz}',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: _opSelectionne == 'flooz'
-                                        ? Colors.white
-                                        : kTextCtx(context))),
-                          ]),
-                    ),
-                  ),
+                _ChipOperateur(
+                  label: 'Flooz',
+                  numero: NumerosManager.flooz,
+                  logo: 'F',
+                  isSelected: _opSelectionne == 'flooz',
+                  activeColor: const Color(0xFF854F0B),
+                  onTap: () => setState(() {
+                    _phoneCtrl.text = NumerosManager.flooz;
+                    _op = 'flooz';
+                    _opSelectionne = 'flooz';
+                  }),
+                  context: context,
                 ),
             ]),
             if (_opSelectionne.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(children: [
-                  const Icon(Icons.info_outline,
-                      size: 14, color: kOrange),
+                  const Icon(Icons.info_outline, size: 14, color: kOrange),
                   const SizedBox(width: 6),
                   Text('Sélectionnez votre numéro de réception',
                       style: TextStyle(fontSize: 12, color: kOrange)),
@@ -459,7 +382,15 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                   ? () async {
                       if (_ref.isEmpty) {
                         _ref = 'REQ-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-                        await _sauvegarderDemande(_ref);
+                      }
+                      final ok = await _sauvegarderDemande(_ref);
+                      if (!ok) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Erreur de connexion. Réessaie.'),
+                            backgroundColor: kRouge,
+                            behavior: SnackBarBehavior.floating));
+                        return;
                       }
                       final lien = 'https://haya.flexix.nl/pay/$_ref?preview=1';
                       launchUrl(Uri.parse(lien), mode: LaunchMode.externalApplication);
@@ -470,9 +401,21 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
                   style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w500)),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: kNuit,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.transparent
+                      : kNuit,
+                  disabledBackgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white10
+                      : Colors.grey.shade200,
+                  disabledForegroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white30
+                      : Colors.grey,
+                  foregroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? kOrange
+                      : Colors.white,
+                  side: Theme.of(context).brightness == Brightness.dark
+                      ? const BorderSide(color: kOrange, width: 2)
+                      : BorderSide.none,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12))),
             ),
@@ -482,9 +425,9 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _peut ? () async {
-                  final msg = _msg();
-                  await _sauvegarderDemande(_ref);
-                  partagerWhatsApp(msg);
+                  final ok = await _sauvegarderDemande(_ref);
+                  if (!ok || !context.mounted) return;
+                  partagerWhatsApp(_msg());
                 } : null,
                 icon: const Icon(Icons.chat,
                     size: 16, color: Color(0xFF25D366)),
@@ -502,9 +445,9 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _peut ? () async {
-                  final msg = _msg();
-                  await _sauvegarderDemande(_ref);
-                  partagerSMS(msg);
+                  final ok = await _sauvegarderDemande(_ref);
+                  if (!ok || !context.mounted) return;
+                  partagerSMS(_msg());
                 } : null,
                 icon: const Icon(Icons.sms_outlined,
                     size: 16, color: kOrange),
@@ -527,4 +470,52 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
       ),
     );
   }
+}
+
+class _ChipOperateur extends StatelessWidget {
+  final String label, numero, logo;
+  final bool isSelected;
+  final Color activeColor;
+  final VoidCallback onTap;
+  final BuildContext context;
+  const _ChipOperateur({
+    required this.label, required this.numero, required this.logo,
+    required this.isSelected, required this.activeColor,
+    required this.onTap, required this.context,
+  });
+  @override
+  Widget build(BuildContext ctx) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+          color: isSelected ? activeColor : kCardCtx(context),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: isSelected ? activeColor : kBorderCtx(context),
+              width: 2)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 20, height: 20,
+          decoration: BoxDecoration(
+              color: isSelected ? Colors.white.withValues(alpha: 0.25) : activeColor,
+              borderRadius: BorderRadius.circular(5)),
+          child: Center(
+            child: Text(logo, style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white,
+                fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white70 : kSubtextCtx(context))),
+          Text('+228 $numero', style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700,
+              color: isSelected ? Colors.white : kTextCtx(context))),
+        ]),
+      ]),
+    ),
+  );
 }

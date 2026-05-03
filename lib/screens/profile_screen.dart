@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../services/managers.dart';
+import '../services/haya_api_service.dart';
 import 'contacts_screen.dart';
 import 'parametres_screen.dart';
 import 'onboarding_screen.dart';
@@ -12,10 +13,41 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  int _nombreTx = 0;
+  int _totalEnvoye = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerStats();
+  }
+
+  Future<void> _chargerStats() async {
+    final stats = await HayaApiService.getStats();
+    if (mounted) {
+      setState(() {
+        _nombreTx = int.tryParse(stats['nombre_transactions']?.toString() ?? '0') ?? 0;
+        _totalEnvoye = (double.tryParse(stats['total_envoye']?.toString() ?? '0') ?? 0).toInt();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kFondCtx(context),
+      appBar: AppBar(
+        backgroundColor: kNuit,
+        elevation: 0,
+        title: const Text('Profil',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context))
+            : null,
+        automaticallyImplyLeading: false,
+      ),
       body: Column(children: [
         Container(
           decoration: const BoxDecoration(
@@ -23,7 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [Color(0xFF0D0D2B), Color(0xFF1e1e6e)])),
-          padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
           child: Column(children: [
             CircleAvatar(
                 radius: 42,
@@ -45,22 +77,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Colors.white60, fontSize: 14)),
             const SizedBox(height: 20),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _ProfilStat('Transferts', '—'),
+              _ProfilStat('Transferts', '$_nombreTx'),
               Container(
-                  width: 1,
-                  height: 30,
-                  color: Colors.white24,
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 24)),
-              _ProfilStat('Envoye', '—'),
+                  width: 1, height: 30, color: Colors.white24,
+                  margin: const EdgeInsets.symmetric(horizontal: 24)),
+              _ProfilStat('Envoyé',
+                  _totalEnvoye == 0 ? '—' :
+                  _totalEnvoye.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')),
               Container(
-                  width: 1,
-                  height: 30,
-                  color: Colors.white24,
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 24)),
-              _ProfilStat('Contacts',
-                  '${ContactsManager.contacts.length}'),
+                  width: 1, height: 30, color: Colors.white24,
+                  margin: const EdgeInsets.symmetric(horizontal: 24)),
+              _ProfilStat('Contacts', '${ContactsManager.contacts.length}'),
             ]),
           ]),
         ),
@@ -68,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
               children: [
-            const Text('Mes numeros',
+            const Text('Mes numéros',
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -78,14 +105,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _ProfilRow(Icons.phone_android, 'Tmoney',
                 NumerosManager.tmoney.isNotEmpty
                     ? '+228 ${NumerosManager.tmoney}'
-                    : 'Non defini',
+                    : 'Non défini',
                 valueColor: NumerosManager.tmoney.isNotEmpty
                     ? kVert
                     : Colors.grey),
             _ProfilRow(Icons.phone_android, 'Flooz',
                 NumerosManager.flooz.isNotEmpty
                     ? '+228 ${NumerosManager.flooz}'
-                    : 'Non defini',
+                    : 'Non défini',
                 valueColor: NumerosManager.flooz.isNotEmpty
                     ? kVert
                     : Colors.grey),
@@ -97,8 +124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Colors.grey,
                     letterSpacing: 0.5)),
             const SizedBox(height: 8),
-            _ProfilAction(Icons.settings_outlined, 'Parametres',
-                'PIN, numeros, apparence',
+            _ProfilAction(Icons.settings_outlined, 'Paramètres',
+                'PIN, numéros, apparence',
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -106,7 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const ParametresScreen())).then(
                     (_) => setState(() {}))),
             _ProfilAction(Icons.people_outline, 'Contacts favoris',
-                '${ContactsManager.contacts.length} contacts enregistres',
+                '${ContactsManager.contacts.length} contacts enregistrés',
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -127,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
                 icon: const Icon(Icons.logout,
                     color: kRouge, size: 18),
-                label: const Text('Se deconnecter',
+                label: const Text('Se déconnecter',
                     style: TextStyle(color: kRouge, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: kRouge),

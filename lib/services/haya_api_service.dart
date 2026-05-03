@@ -3,8 +3,13 @@ import 'package:http/http.dart' as http;
 
 class HayaApiService {
   static const String baseUrl = 'https://haya.flexix.nl/api';
-
   static int utilisateurId = 1;
+  static String token = '';
+
+  static Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+  };
 
   static Future<bool> enregistrerTransaction({
     required String telephone,
@@ -15,7 +20,7 @@ class HayaApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/transactions'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
         body: jsonEncode({
           'expediteur_id': utilisateurId,
           'telephone_destinataire': telephone,
@@ -25,8 +30,7 @@ class HayaApiService {
         }),
       ).timeout(const Duration(seconds: 10));
       return response.statusCode == 201;
-    } catch (e) {
-      print('Backend non disponible: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -35,15 +39,14 @@ class HayaApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/transactions/$utilisateurId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['transactions']);
       }
       return [];
-    } catch (e) {
-      print('Erreur historique: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -58,8 +61,9 @@ class HayaApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'prenom': prenom, 'nom': '', 'telephone': telephone}),
       ).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        if (data['token'] != null) token = data['token'];
         return data['utilisateur'];
       }
       return null;
@@ -68,10 +72,37 @@ class HayaApiService {
     }
   }
 
+  static Future<bool> creerDemande({
+    required String telephone,
+    required int montant,
+    required String objet,
+    required String operateur,
+    required String reference,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/demandes'),
+        headers: _headers,
+        body: jsonEncode({
+          'expediteur_id': utilisateurId,
+          'telephone_destinataire': telephone,
+          'montant': montant,
+          'objet': objet,
+          'operateur': operateur,
+          'reference': reference,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getDemandes() async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/demandes/$utilisateurId'),
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -87,6 +118,7 @@ class HayaApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/demandes/statut/$reference'),
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -102,10 +134,10 @@ class HayaApiService {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/demandes/payer/$reference'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -114,15 +146,14 @@ class HayaApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/transactions/stats/$utilisateurId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['stats'] ?? {};
       }
       return {};
-    } catch (e) {
-      print('Erreur stats: $e');
+    } catch (_) {
       return {};
     }
   }

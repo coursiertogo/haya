@@ -77,9 +77,12 @@ class _DemandesScreenState extends State<DemandesScreen> {
       appBar: AppBar(
         backgroundColor: kNuit,
         elevation: 0,
-        leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context)),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context))
+            : null,
+        automaticallyImplyLeading: false,
         title: const Text('Mes demandes',
             style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
         actions: [
