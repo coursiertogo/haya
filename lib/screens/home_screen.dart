@@ -7,6 +7,7 @@ import '../services/auth_utils.dart';
 import 'payment_request_screen.dart';
 import 'mes_demandes_screen.dart';
 import 'parametres_screen.dart';
+import 'send_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -279,38 +280,77 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 8),
 
-                // Bouton Nouvelle demande
-                GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(
-                          builder: (_) => const PaymentRequestScreen()))
-                      .then((_) => _charger()),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    decoration: BoxDecoration(
-                        color: kOrange,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                              color: kOrange.withValues(alpha: 0.35),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8))
+                // Boutons action rapide
+                Row(children: [
+                  // Envoyer
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const SendScreen()))
+                          .then((_) => _charger()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                            color: kNuit,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08)),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.18),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4))
+                            ]),
+                        child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          Icon(Icons.arrow_upward_rounded,
+                              color: Colors.white, size: 24),
+                          SizedBox(height: 6),
+                          Text('Envoyer',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700)),
                         ]),
-                    child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                      Icon(Icons.add_circle_outline,
-                          color: Colors.white, size: 22),
-                      SizedBox(width: 10),
-                      Text('Nouvelle demande',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
-                    ]),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  // Demander
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(
+                              builder: (_) => const PaymentRequestScreen()))
+                          .then((_) => _charger()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                            color: kOrange,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: kOrange.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4))
+                            ]),
+                        child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          Icon(Icons.arrow_downward_rounded,
+                              color: Colors.white, size: 24),
+                          SizedBox(height: 6),
+                          Text('Demander',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ]),
 
                 const SizedBox(height: 10),
 

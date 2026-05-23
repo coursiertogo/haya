@@ -406,7 +406,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
             style: TextStyle(color: Color(0xFF111827), fontSize: 22,
                 fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
-        Text('Le payeur sera obligé d\'utiliser le même opérateur.',
+        Text('Le payeur peut utiliser Tmoney ou Flooz.',
             style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
         const SizedBox(height: 28),
 

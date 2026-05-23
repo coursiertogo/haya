@@ -300,6 +300,38 @@ class _MesDemandesScreenState extends State<MesDemandesScreen>
                   ),
                 ),
               ],
+              if (!isRecue && statut == 'paye' && (d['payout_statut'] ?? '') == 'echec_final') ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFEF0F0),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFF7C1C1))),
+                  child: const Row(children: [
+                    Icon(Icons.warning_amber_rounded, color: kRouge, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Votre compte a été débité mais le destinataire n\'a pas reçu le montant.',
+                        style: TextStyle(fontSize: 12, color: kRouge))),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://haya.flexix.nl/reclamation/${d['reference']}'),
+                        mode: LaunchMode.externalApplication),
+                    icon: const Icon(Icons.support_agent, size: 16),
+                    label: const Text('Réclamer le remboursement',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: kRouge, foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  ),
+                ),
+              ],
             ]),
           );
         },

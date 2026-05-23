@@ -53,12 +53,6 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   void _initCompteSource() {
-    // Si demande de paiement → forcer le compte selon l'opérateur du créateur
-    if (widget.operateurInitial != null) {
-      _compteSource = widget.operateurInitial!;
-      return;
-    }
-    // Sinon → compte par défaut
     if (NumerosManager.flooz.isNotEmpty) {
       _compteSource = 'flooz';
     } else {
@@ -493,8 +487,7 @@ class _SendScreenState extends State<SendScreen> {
               ]),
             ),
           const SizedBox(height: 16),
-          if (NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty
-              && widget.refInitial == null) ...[
+          if (NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty) ...[
             Text('Payer depuis',
                 style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
             const SizedBox(height: 8),

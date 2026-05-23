@@ -257,9 +257,11 @@ Envoyé via Haya
   @override
   Widget build(BuildContext context) {
     final eur = TauxChangeService.fcfaVersEuros(widget.montant);
-    return Scaffold(
-      backgroundColor: kFondCtx(context),
-      body: SafeArea(
+    return PopScope(
+      canPop: _statut != 'pending',
+      child: Scaffold(
+        backgroundColor: kFondCtx(context),
+        body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -421,24 +423,61 @@ Envoyé via Haya
                 ),
               ),
             ],
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity, height: 52,
-              child: ElevatedButton(
-                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: kNuit,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12))),
-                child: const Text("Retour a l'accueil",
-                    style: TextStyle(color: Colors.white, fontSize: 16,
-                        fontWeight: FontWeight.w500)),
+            if (_statut == 'pending') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity, height: 48,
+                child: TextButton(
+                  onPressed: () async {
+                    final confirmer = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Annuler le transfert ?'),
+                        content: const Text(
+                            'Si tu as déjà confirmé le USSD, ton compte mobile money sera quand même débité.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Rester', style: TextStyle(color: kOrange)),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Quitter quand même',
+                                style: TextStyle(color: Colors.grey)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmer == true && context.mounted) {
+                      Navigator.popUntil(context, (r) => r.isFirst);
+                    }
+                  },
+                  child: const Text('Annuler',
+                      style: TextStyle(color: Colors.grey, fontSize: 14)),
+                ),
               ),
-            ),
+            ],
+            if (_statut != 'pending') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: kNuit,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                  child: const Text("Retour a l'accueil",
+                      style: TextStyle(color: Colors.white, fontSize: 16,
+                          fontWeight: FontWeight.w500)),
+                ),
+              ),
+            ],
           ]),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
