@@ -1,9 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/taux_change_service.dart';
 import '../services/managers.dart';
@@ -17,7 +14,7 @@ class SuccessScreen extends StatefulWidget {
   final String numeroDestinataire;
   final String operateurDestinataire;
   final String referenceHaya;
-  final String? demandeRef; // référence de la demande à marquer comme payée
+  final String? demandeRef;
   const SuccessScreen({
     super.key,
     required this.montant,
@@ -41,8 +38,6 @@ class _SuccessScreenState extends State<SuccessScreen>
   late String _ref;
   String _statut = 'pending';
   String _erreurPayout = '';
-  final ScreenshotController _screenshotCtrl = ScreenshotController();
-  bool _capturingImage = false;
 
   @override
   void initState() {
@@ -60,13 +55,12 @@ class _SuccessScreenState extends State<SuccessScreen>
     if (FeexPayService.modeSandbox) {
       setState(() => _statut = 'success');
     } else {
-      // Production — attendre confirmation USSD même sans ID
       _pollStatut();
     }
   }
 
   Future<void> _pollStatut() async {
-    const maxTentatives = 12; // 12 x 5s = 60s
+    const maxTentatives = 12;
     for (int i = 0; i < maxTentatives; i++) {
       await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
@@ -105,7 +99,6 @@ class _SuccessScreenState extends State<SuccessScreen>
         return;
       }
     }
-    // Timeout 60s — tente le payout
     if (widget.numeroDestinataire.isNotEmpty) {
       final payout = await FeexPayService.payerDestinataire(
         telephone: widget.numeroDestinataire,
@@ -127,29 +120,11 @@ class _SuccessScreenState extends State<SuccessScreen>
         }
       }
     } else if (mounted && _statut == 'pending') {
-      // Ne pas auto-succéder — impossible de confirmer le paiement
       setState(() {
         _statut = 'failed';
         _erreurPayout = 'Impossible de confirmer le paiement. Vérifiez votre compte mobile money.';
       });
       HapticFeedback.vibrate();
-    }
-  }
-
-  Future<void> _partagerImage() async {
-    setState(() => _capturingImage = true);
-    try {
-      final image = await _screenshotCtrl.capture(pixelRatio: 2.5);
-      if (image == null) return;
-      final dir  = await getTemporaryDirectory();
-      final file = File('${dir.path}/haya_recu.png');
-      await file.writeAsBytes(image);
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '🧾 Reçu Haya — FCFA ${widget.montant} vers +228 ${widget.numero}',
-      );
-    } finally {
-      if (mounted) setState(() => _capturingImage = false);
     }
   }
 
@@ -175,7 +150,7 @@ class _SuccessScreenState extends State<SuccessScreen>
     });
   }
 
-  void _partager() {
+  void _partagerTexte() {
     final eur = TauxChangeService.fcfaVersEuros(widget.montant);
     final recu = '''
 🧾 REÇU HAYA
@@ -203,9 +178,7 @@ Envoyé via Haya
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('Partager le reçu',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
                   color: kTextCtx(context))),
           const SizedBox(height: 16),
           Container(
@@ -215,19 +188,14 @@ Envoyé via Haya
                 color: kInputCtx(context),
                 borderRadius: BorderRadius.circular(12)),
             child: Text(recu,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: kTextCtx(context),
+                style: TextStyle(fontSize: 12, color: kTextCtx(context),
                     fontFamily: 'monospace')),
           ),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  partagerWhatsApp(recu);
-                },
+                onPressed: () { Navigator.pop(context); partagerWhatsApp(recu); },
                 icon: const Icon(Icons.chat, size: 16),
                 label: const Text('WhatsApp'),
                 style: ElevatedButton.styleFrom(
@@ -240,10 +208,7 @@ Envoyé via Haya
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  partagerSMS(recu);
-                },
+                onPressed: () { Navigator.pop(context); partagerSMS(recu); },
                 icon: const Icon(Icons.sms_outlined, size: 16, color: kOrange),
                 label: const Text('SMS', style: TextStyle(color: kOrange)),
                 style: OutlinedButton.styleFrom(
@@ -264,8 +229,7 @@ Envoyé via Haya
                       behavior: SnackBarBehavior.floating));
                 },
                 icon: Icon(Icons.copy, size: 16, color: kSubtextCtx(context)),
-                label: Text('Copier',
-                    style: TextStyle(color: kSubtextCtx(context))),
+                label: Text('Copier', style: TextStyle(color: kSubtextCtx(context))),
                 style: OutlinedButton.styleFrom(
                     side: BorderSide(color: kBorderCtx(context)),
                     shape: RoundedRectangleBorder(
@@ -285,10 +249,8 @@ Envoyé via Haya
   }
 
   String _fmtDate(DateTime d) {
-    const m = [
-      'jan', 'fev', 'mars', 'avr', 'mai', 'juin',
-      'juil', 'aout', 'sep', 'oct', 'nov', 'dec'
-    ];
+    const m = ['jan', 'fev', 'mars', 'avr', 'mai', 'juin',
+                'juil', 'aout', 'sep', 'oct', 'nov', 'dec'];
     return '${d.day} ${m[d.month - 1]}. ${d.year} ${d.hour.toString().padLeft(2, "0")}h${d.minute.toString().padLeft(2, "0")}';
   }
 
@@ -301,21 +263,26 @@ Envoyé via Haya
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            // ─── CERCLE ICÔNE ────────────────────────────
             ScaleTransition(
               scale: _scale,
               child: Container(
-                width: 80,
-                height: 80,
+                width: 80, height: 80,
                 decoration: BoxDecoration(
                     color: _statut == 'failed'
                         ? const Color(0xFFFEF0F0)
-                        : const Color(0xFFE7F6EF),
+                        : _statut == 'pending'
+                            ? kOrange.withValues(alpha: 0.12)
+                            : const Color(0xFFE7F6EF),
                     shape: BoxShape.circle),
-                child: Icon(
-                  _statut == 'failed' ? Icons.error_outline : Icons.check_circle,
-                  color: _statut == 'failed' ? kRouge : kVert,
-                  size: 48,
-                ),
+                child: _statut == 'pending'
+                    ? const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(color: kOrange, strokeWidth: 3))
+                    : Icon(
+                        _statut == 'failed' ? Icons.error_outline : Icons.check_circle,
+                        color: _statut == 'failed' ? kRouge : kVert,
+                        size: 48),
               ),
             ),
             const SizedBox(height: 20),
@@ -323,14 +290,10 @@ Envoyé via Haya
               opacity: _fade,
               child: Column(children: [
                 Text(
-                  _statut == 'success'
-                      ? 'Transfert réussi !'
-                      : _statut == 'failed'
-                          ? 'Transfert échoué'
-                          : 'Confirmation en cours...',
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
+                  _statut == 'success' ? 'Transfert réussi !'
+                      : _statut == 'failed' ? 'Transfert échoué'
+                      : 'Confirmation en cours...',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500,
                       color: _statut == 'failed' ? kRouge : kTextCtx(context))),
                 const SizedBox(height: 8),
                 if (_statut == 'pending')
@@ -340,9 +303,8 @@ Envoyé via Haya
                         color: kOrange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20)),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      SizedBox(width: 14, height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: kOrange)),
+                      const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: kOrange)),
                       const SizedBox(width: 8),
                       const Text('Confirme sur ton téléphone via USSD',
                           style: TextStyle(fontSize: 12, color: kOrange,
@@ -357,8 +319,7 @@ Envoyé via Haya
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: kRouge.withValues(alpha: 0.2))),
                     child: Text(
-                        _erreurPayout.isNotEmpty
-                            ? _erreurPayout
+                        _erreurPayout.isNotEmpty ? _erreurPayout
                             : 'Le paiement n\'a pas été confirmé.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 13, color: kRouge,
@@ -366,25 +327,20 @@ Envoyé via Haya
                   ),
                 const SizedBox(height: 8),
                 Text('FCFA ${widget.montant}',
-                    style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -1,
-                        color: kNuit)),
+                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w600,
+                        letterSpacing: -1, color: kNuit)),
                 const SizedBox(height: 4),
                 if (NumerosManager.conversionEurOn)
                   Text('~$eur EUR',
                       style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                Text(
-                    'Vers +228 ${widget.numero} · ${widget.operateur}',
+                Text('Vers +228 ${widget.numero} · ${widget.operateur}',
                     style: const TextStyle(fontSize: 13, color: Colors.grey),
                     textAlign: TextAlign.center),
               ]),
             ),
             const SizedBox(height: 20),
-            Screenshot(
-              controller: _screenshotCtrl,
-              child: Container(
+            // ─── CARTE REÇU ──────────────────────────────
+            Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -392,34 +348,25 @@ Envoyé via Haya
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: kBorderCtx(context)),
                   boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10)
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)
                   ]),
               child: Column(children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('Recu',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: kTextCtx(context))),
+                  Text('Recu', style: TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w500, color: kTextCtx(context))),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                        color: _statut == 'success'
-                            ? const Color(0xFFE7F6EF)
-                            : _statut == 'failed'
-                                ? const Color(0xFFFEF0F0)
-                                : const Color(0xFFFFF5EA),
+                        color: _statut == 'success' ? const Color(0xFFE7F6EF)
+                            : _statut == 'failed'  ? const Color(0xFFFEF0F0)
+                            : const Color(0xFFFFF5EA),
                         borderRadius: BorderRadius.circular(20)),
                     child: Text(
-                        _statut == 'success' ? 'Confirmé' :
-                        _statut == 'failed'  ? 'Échoué'  : 'En attente',
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: _statut == 'success' ? kVert :
-                                   _statut == 'failed'  ? kRouge : kOrange,
+                        _statut == 'success' ? 'Confirmé'
+                            : _statut == 'failed' ? 'Échoué' : 'En attente',
+                        style: TextStyle(fontSize: 11,
+                            color: _statut == 'success' ? kVert
+                                : _statut == 'failed' ? kRouge : kOrange,
                             fontWeight: FontWeight.w500)),
                   ),
                 ]),
@@ -436,40 +383,22 @@ Envoyé via Haya
                 _ReceiptRow('Date', _fmtDate(DateTime.now()), context: context),
               ]),
             ),
-            ), // Screenshot
+            // ─── BOUTONS ─────────────────────────────────
             if (_statut == 'success') ...[
               const SizedBox(height: 16),
               SizedBox(
-                width: double.infinity,
-                height: 48,
+                width: double.infinity, height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: _partager,
+                  onPressed: widget.demandeRef != null
+                      ? () => launchUrl(
+                          Uri.parse('https://haya.flexix.nl/pay/${widget.demandeRef}'),
+                          mode: LaunchMode.externalApplication)
+                      : _partagerTexte,
                   icon: const Icon(Icons.receipt_long_outlined, size: 18),
                   label: const Text('Partager le reçu',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: kOrange,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                ),
-              ),
-            ],
-            if (_statut == 'success') ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: _capturingImage ? null : _partagerImage,
-                  icon: _capturingImage
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: kNuit))
-                      : const Icon(Icons.image_outlined, size: 18, color: kNuit),
-                  label: Text(_capturingImage ? 'Génération...' : '📸 Partager comme image',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kNuit)),
-                  style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: kNuit),
+                      backgroundColor: kOrange, foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12))),
                 ),
@@ -478,8 +407,7 @@ Envoyé via Haya
             if (_statut == 'failed') ...[
               const SizedBox(height: 10),
               SizedBox(
-                width: double.infinity,
-                height: 52,
+                width: double.infinity, height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
@@ -495,19 +423,15 @@ Envoyé via Haya
             ],
             const SizedBox(height: 10),
             SizedBox(
-              width: double.infinity,
-              height: 52,
+              width: double.infinity, height: 52,
               child: ElevatedButton(
-                onPressed: () =>
-                    Navigator.popUntil(context, (r) => r.isFirst),
+                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: kNuit,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12))),
                 child: const Text("Retour a l'accueil",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                    style: TextStyle(color: Colors.white, fontSize: 16,
                         fontWeight: FontWeight.w500)),
               ),
             ),
@@ -522,12 +446,8 @@ class _NotificationBanner extends StatefulWidget {
   final int montant;
   final String numero, operateur;
   final VoidCallback onDismiss;
-  const _NotificationBanner({
-    required this.montant,
-    required this.numero,
-    required this.operateur,
-    required this.onDismiss,
-  });
+  const _NotificationBanner({required this.montant, required this.numero,
+      required this.operateur, required this.onDismiss});
   @override
   State<_NotificationBanner> createState() => _NotificationBannerState();
 }
@@ -542,8 +462,7 @@ class _NotificationBannerState extends State<_NotificationBanner>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));
-    _slide = Tween<Offset>(
-            begin: const Offset(0, -1.5), end: Offset.zero)
+    _slide = Tween<Offset>(begin: const Offset(0, -1.5), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
     _ctrl.forward();
   }
@@ -561,44 +480,32 @@ class _NotificationBannerState extends State<_NotificationBanner>
           elevation: 8,
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: kNuit,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: kOrange.withValues(alpha: 0.3)),
             ),
             child: Row(children: [
-              Container(
-                  width: 40,
-                  height: 40,
+              Container(width: 40, height: 40,
                   decoration: const BoxDecoration(
                       color: Color(0xFFE7F6EF), shape: BoxShape.circle),
-                  child: const Icon(Icons.check_circle,
-                      color: kVert, size: 24)),
+                  child: const Icon(Icons.check_circle, color: kVert, size: 24)),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Transfert confirme',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                      Text(
-                          'FCFA ${widget.montant} vers +228 ${widget.numero}',
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 12)),
-                      Text(widget.operateur,
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 11)),
-                    ]),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Transfert confirme',
+                      style: TextStyle(color: Colors.white, fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  Text('FCFA ${widget.montant} vers +228 ${widget.numero}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text(widget.operateur,
+                      style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                ]),
               ),
               GestureDetector(
                   onTap: widget.onDismiss,
-                  child: const Icon(Icons.close,
-                      color: Colors.white38, size: 18)),
+                  child: const Icon(Icons.close, color: Colors.white38, size: 18)),
             ]),
           ),
         ),
@@ -614,11 +521,8 @@ class _ReceiptRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: kTextCtx(context))),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+              color: kTextCtx(context))),
         ]),
       );
 }

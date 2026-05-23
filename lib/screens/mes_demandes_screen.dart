@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/haya_api_service.dart';
 import '../services/managers.dart';
@@ -7,7 +8,8 @@ import 'send_screen.dart';
 import 'parametres_screen.dart';
 
 class MesDemandesScreen extends StatefulWidget {
-  const MesDemandesScreen({super.key});
+  final int initialTab;
+  const MesDemandesScreen({super.key, this.initialTab = 0});
   @override
   State<MesDemandesScreen> createState() => _MesDemandesScreenState();
 }
@@ -22,7 +24,7 @@ class _MesDemandesScreenState extends State<MesDemandesScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
     WidgetsBinding.instance.addObserver(this);
     _charger();
   }
@@ -87,7 +89,13 @@ class _MesDemandesScreenState extends State<MesDemandesScreen>
       for (final ref in aSupprimer) await prefs.remove('pending_detail_$ref');
     }
 
-    recues.sort((a, b) => (b['cree_le'] ?? '').compareTo(a['cree_le'] ?? ''));
+    recues.sort((a, b) {
+      const ordre = {'en_attente': 0, 'paye': 1, 'annule': 2};
+      final sa = ordre[a['statut']] ?? 1;
+      final sb = ordre[b['statut']] ?? 1;
+      if (sa != sb) return sa.compareTo(sb);
+      return (b['cree_le'] ?? '').compareTo(a['cree_le'] ?? '');
+    });
     if (mounted) {
       setState(() { _envoyees = envoyees; _recues = recues; _chargement = false; });
     }
@@ -269,6 +277,24 @@ class _MesDemandesScreenState extends State<MesDemandesScreen>
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: kOrange, foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  ),
+                ),
+              ],
+              if (isRecue && statut == 'paye') ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://haya.flexix.nl/pay/${d['reference']}'),
+                        mode: LaunchMode.externalApplication),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 16, color: kVert),
+                    label: const Text('Partager le reçu',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kVert)),
+                    style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: kVert.withValues(alpha: 0.5)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                   ),

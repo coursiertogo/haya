@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../services/haya_api_service.dart';
 import '../services/managers.dart';
@@ -16,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _dernieresDemandes = [];
   bool _chargement = true;
+  int _aPayerCount = 0;
 
   @override
   void initState() {
@@ -26,7 +28,26 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _charger() async {
     setState(() => _chargement = true);
     final data = await HayaApiService.getDemandesEnvoyees();
-    if (mounted) setState(() { _dernieresDemandes = data; _chargement = false; });
+
+    // Compteur "À payer" : local (pending_to_pay) + serveur (telephone_payeur)
+    final prefs = await SharedPreferences.getInstance();
+    final pendingRefs = Set<String>.from(prefs.getStringList('pending_to_pay') ?? []);
+    final phones = <String>{};
+    if (UserManager.telephone.isNotEmpty) phones.add(UserManager.telephone);
+    if (NumerosManager.tmoney.isNotEmpty) phones.add(NumerosManager.tmoney);
+    if (NumerosManager.flooz.isNotEmpty) phones.add(NumerosManager.flooz);
+    for (final phone in phones) {
+      final serveur = await HayaApiService.getDemandesAPayer(phone);
+      for (final d in serveur) {
+        if (d['statut'] == 'en_attente') pendingRefs.add(d['reference'].toString());
+      }
+    }
+
+    if (mounted) setState(() {
+      _dernieresDemandes = data;
+      _aPayerCount = pendingRefs.length;
+      _chargement = false;
+    });
   }
 
   String _formatMontant(dynamic m) {
@@ -314,7 +335,50 @@ class _HomeScreenState extends State<HomeScreen> {
                   ]),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+
+                // ─── NOTIFICATION À PAYER ───────────
+                if (_aPayerCount > 0)
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => const MesDemandesScreen(initialTab: 1)))
+                        .then((_) => _charger()),
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                          color: kOrange.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: kOrange.withValues(alpha: 0.35))),
+                      child: Row(children: [
+                        Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                              color: kOrange, borderRadius: BorderRadius.circular(10)),
+                          child: Center(
+                            child: Text('$_aPayerCount',
+                                style: const TextStyle(color: Colors.white,
+                                    fontSize: 15, fontWeight: FontWeight.w800)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(_aPayerCount == 1
+                              ? '1 demande en attente de paiement'
+                              : '$_aPayerCount demandes en attente de paiement',
+                              style: TextStyle(fontSize: 13,
+                                  fontWeight: FontWeight.w600, color: kOrange)),
+                          const SizedBox(height: 2),
+                          Text('Appuyer pour payer',
+                              style: TextStyle(fontSize: 11,
+                                  color: kOrange.withValues(alpha: 0.7))),
+                        ])),
+                        Icon(Icons.chevron_right, color: kOrange.withValues(alpha: 0.7)),
+                      ]),
+                    ),
+                  ),
 
                 // ─── LISTE ou EMPTY STATE ───────────
                 if (!aDesDemandes && !_chargement)
