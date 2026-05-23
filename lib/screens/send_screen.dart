@@ -35,6 +35,7 @@ class _SendScreenState extends State<SendScreen> {
   String _op = '';
   bool _dejaPayee = false;
   String _compteSource = '';
+  int _etape = 1;
 
   @override
   void initState() {
@@ -50,6 +51,10 @@ class _SendScreenState extends State<SendScreen> {
     if (widget.operateurInitial != null) _op = widget.operateurInitial!;
     if (widget.refInitial != null) _verifierStatutDemande();
     _initCompteSource();
+    // Si vient d'une demande (tout pré-rempli) → directement étape 3
+    if (widget.refInitial != null) _etape = 3;
+    // Si numéro pré-rempli mais pas de demande → étape 2 (choisir compte)
+    else if (widget.numeroInitial != null) _etape = 2;
   }
 
   void _initCompteSource() {
@@ -267,379 +272,409 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Nombre total d'étapes (si demande pré-remplie → 1 étape résumé seulement)
+    final totalEtapes = widget.refInitial != null ? 1 : 3;
+    final etapeAffichee = widget.refInitial != null ? 1 : _etape;
+
     return Scaffold(
       backgroundColor: kFondCtx(context),
       appBar: AppBar(
-          backgroundColor: kNuit,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          title: const Text('Envoyer',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(height: 8),
-          if (widget.objetInitial != null) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                  color: kOrange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kOrange.withValues(alpha: 0.25))),
-              child: Row(children: [
-                const Icon(Icons.receipt_outlined, color: kOrange, size: 18),
-                const SizedBox(width: 10),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Demande de paiement',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: kOrange.withValues(alpha: 0.8))),
-                  Text(widget.objetInitial!,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: kOrange)),
-                ]),
-              ]),
+        backgroundColor: kNuit,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (_etape > 1 && widget.refInitial == null) {
+              setState(() => _etape--);
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
+        title: Text(
+          widget.objetInitial != null
+              ? 'Payer · ${widget.objetInitial}'
+              : 'Envoyer · $etapeAffichee/$totalEtapes',
+          style: const TextStyle(color: Colors.white, fontSize: 16,
+              fontWeight: FontWeight.w600),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: etapeAffichee / totalEtapes,
+            backgroundColor: Colors.white.withValues(alpha: 0.15),
+            valueColor: const AlwaysStoppedAnimation<Color>(kOrange),
+          ),
+        ),
+      ),
+      body: widget.refInitial != null
+          ? _buildEtape3(context)
+          : _etape == 1
+              ? _buildEtape1(context)
+              : _etape == 2
+                  ? _buildEtape2(context)
+                  : _buildEtape3(context),
+    );
+  }
+
+  // ─── ÉTAPE 1 : MONTANT ───────────────────────────────────
+  Widget _buildEtape1(BuildContext context) {
+    const suggestions = [1000, 2000, 5000, 10000, 25000];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 16),
+        Text('Quel montant ?',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextCtx(context))),
+        const SizedBox(height: 6),
+        Text('Frais Haya : 3% · ~$_eur EUR',
+            style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+        const SizedBox(height: 24),
+        Container(
+          decoration: BoxDecoration(
+            color: kInputCtx(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorderCtx(context)),
+          ),
+          child: Row(children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Text('FCFA',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kSubtextCtx(context))),
             ),
-          ],
-          Text('Montant (FCFA)',
-              style:
-                  TextStyle(fontSize: 13, color: kSubtextCtx(context))),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-                color: widget.montantInitial != null
-                    ? kInputCtx(context)
-                    : kCardCtx(context),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kBorderCtx(context))),
-            child: Row(children: [
-              Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('FCFA',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: kSubtextCtx(context)))),
-              Expanded(
-                child: TextField(
-                  controller: _amountCtrl,
-                  keyboardType: TextInputType.number,
-                  readOnly: widget.montantInitial != null,
+            Expanded(
+              child: TextField(
+                controller: _amountCtrl,
+                enabled: widget.montantInitial == null,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: kTextCtx(context)),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '0',
+                  hintStyle: TextStyle(fontSize: 24, color: kSubtextCtx(context)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: suggestions.map((s) {
+            final sel = _montant == s;
+            return GestureDetector(
+              onTap: widget.montantInitial == null
+                  ? () { _amountCtrl.text = s.toString(); setState(() {}); }
+                  : null,
+              child: Chip(
+                label: Text('$s'),
+                backgroundColor: sel ? kOrange : kCardCtx(context),
+                labelStyle: TextStyle(
+                  color: sel ? Colors.white : kTextCtx(context),
+                  fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 13,
+                ),
+                side: BorderSide(color: sel ? kOrange : kBorderCtx(context)),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: _montant > 0 ? () => setState(() => _etape = 2) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kNuit,
+              disabledBackgroundColor: kBorderCtx(context),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('Suivant',
                   style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                      color: kTextCtx(context)),
-                  decoration: const InputDecoration(
-                      hintText: '0', border: InputBorder.none),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              if (widget.montantInitial != null)
-                const Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: Icon(Icons.lock_outline,
-                        size: 16, color: Colors.grey)),
+                    color: _montant > 0 ? Colors.white : kSubtextCtx(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  )),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward, size: 18,
+                  color: _montant > 0 ? Colors.white : kSubtextCtx(context)),
             ]),
           ),
-          if (_montant > 0 && NumerosManager.conversionEurOn)
+        ),
+      ]),
+    );
+  }
+
+  // ─── ÉTAPE 2 : NUMÉRO BÉNÉFICIAIRE ──────────────────────
+  Widget _buildEtape2(BuildContext context) {
+    Color opColor = Colors.grey;
+    String opLabel = 'Opérateur non reconnu';
+    if (_op == 'tmoney') { opColor = const Color(0xFF007AFF); opLabel = 'Mixx by Yas (Tmoney)'; }
+    if (_op == 'flooz')  { opColor = const Color(0xFFFF6600); opLabel = 'Flooz (Moov Africa)'; }
+    final valide = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length == 8 &&
+        (_op == 'tmoney' || _op == 'flooz');
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 16),
+        Text('Numéro bénéficiaire',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextCtx(context))),
+        const SizedBox(height: 6),
+        Text('Numéro Togo (+228)',
+            style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+        const SizedBox(height: 24),
+        Container(
+          decoration: BoxDecoration(
+            color: kInputCtx(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorderCtx(context)),
+          ),
+          child: Row(children: [
             Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(children: [
-                const Icon(Icons.euro, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('~$_eur EUR',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ]),
+              padding: const EdgeInsets.only(left: 16, right: 4),
+              child: Text('+228',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kSubtextCtx(context))),
             ),
-          if (widget.montantInitial == null) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [1000, 2000, 5000, 10000, 25000]
-                  .map((v) => GestureDetector(
-                        onTap: () =>
-                            setState(() => _amountCtrl.text = v.toString()),
-                        child: Chip(
-                          label: Text(v
-                              .toString()
-                              .replaceAllMapped(
-                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                  (m) => '${m[1]} '),
-                              style: const TextStyle(fontSize: 12)),
-                          backgroundColor: kCardCtx(context),
-                          side: BorderSide(color: kBorderCtx(context)),
-                          padding: EdgeInsets.zero,
-                        ),
-                      ))
-                  .toList(),
+            Expanded(
+              child: TextField(
+                controller: _phoneCtrl,
+                enabled: widget.numeroInitial == null,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(fontSize: 18, color: kTextCtx(context)),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '00 00 00 00',
+                  contentPadding: EdgeInsets.symmetric(vertical: 18),
+                ),
+                onChanged: (v) => setState(() => _op = detectOperateur(v)),
+              ),
             ),
-          ],
-          const SizedBox(height: 16),
-          Text('Numéro du bénéficiaire',
-              style:
-                  TextStyle(fontSize: 13, color: kSubtextCtx(context))),
-          const SizedBox(height: 8),
+            if (widget.numeroInitial == null) ...[
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner, color: kOrange),
+                onPressed: () async {
+                  final result = await Navigator.push<String>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+                  );
+                  if (result != null && mounted) {
+                    final digits = result.replaceAll(RegExp(r'\D'), '');
+                    final tel = digits.length > 8 ? digits.substring(digits.length - 8) : digits;
+                    _phoneCtrl.text = tel;
+                    setState(() => _op = detectOperateur(tel));
+                  }
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.contacts_outlined, color: kOrange),
+                onPressed: () async {
+                  final result = await Navigator.push<String>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ContactsScreen()),
+                  );
+                  if (result != null && mounted) {
+                    final digits = result.replaceAll(RegExp(r'\D'), '');
+                    final tel = digits.length > 8 ? digits.substring(digits.length - 8) : digits;
+                    _phoneCtrl.text = tel;
+                    setState(() => _op = detectOperateur(tel));
+                  }
+                },
+              ),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 12),
+        if (_phoneCtrl.text.isNotEmpty)
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-                color: widget.numeroInitial != null
-                    ? kInputCtx(context)
-                    : kCardCtx(context),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kBorderCtx(context))),
-            child: Row(children: [
-              Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('+228',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: kSubtextCtx(context)))),
-              Expanded(
-                child: TextField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 8,
-                  readOnly: widget.numeroInitial != null,
-                  style: TextStyle(fontSize: 19, color: kTextCtx(context)),
-                  decoration: const InputDecoration(
-                      hintText: 'XX XX XX XX',
-                      border: InputBorder.none,
-                      counterText: ''),
-                  onChanged: (v) =>
-                      setState(() => _op = detectOperateur(v)),
-                ),
-              ),
-              if (widget.numeroInitial != null)
-                const Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: Icon(Icons.lock_outline,
-                        size: 16, color: Colors.grey))
-              else
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(
-                    icon: const Icon(Icons.qr_code_scanner,
-                        color: Colors.grey, size: 22),
-                    onPressed: () async {
-                      await Navigator.push(context,
-                          MaterialPageRoute(
-                              builder: (_) => const QrScannerScreen()));
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.contacts_outlined,
-                        color: kOrange, size: 22),
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const ContactsScreen())),
-                  ),
-                ]),
+              color: opColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: opColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.circle, size: 8, color: opColor),
+              const SizedBox(width: 6),
+              Text(opLabel,
+                  style: TextStyle(fontSize: 13, color: opColor, fontWeight: FontWeight.w500)),
             ]),
           ),
-          const SizedBox(height: 8),
-          if (_op == 'tmoney' || _op == 'flooz')
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 2),
-              child: Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                      color: _op == 'tmoney'
-                          ? const Color(0xFFEEEDFE)
-                          : const Color(0xFFFFF5EA),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: _op == 'tmoney'
-                              ? const Color(0xFFAFA9EC)
-                              : const Color(0xFFFAC775))),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    OpLogo(operateur: _op, height: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                        _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _op == 'tmoney' ? kNuit : const Color(0xFF854F0B))),
-                  ]),
-                ),
-              ]),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: valide ? () => setState(() => _etape = 3) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kNuit,
+              disabledBackgroundColor: kBorderCtx(context),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-          if (_op == 'inconnu')
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFEF0F0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFF7C1C1))),
-              child: const Row(children: [
-                Icon(Icons.error_outline, color: kRouge, size: 20),
-                SizedBox(width: 8),
-                Text('Numéro non reconnu',
-                    style: TextStyle(color: kRouge, fontSize: 13)),
-              ]),
-            ),
-          const SizedBox(height: 16),
-          if (NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty) ...[
-            Text('Payer depuis',
-                style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                  color: kInputCtx(context),
-                  borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                Expanded(child: GestureDetector(
-                  onTap: () => setState(() => _compteSource = 'tmoney'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                        color: _compteSource == 'tmoney' ? kCardCtx(context) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const OpLogo(operateur: 'tmoney', height: 18),
-                      const SizedBox(width: 6),
-                      Text('Tmoney · +228 ${NumerosManager.tmoney}',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                              color: _compteSource == 'tmoney' ? kNuit : Colors.grey)),
-                    ]),
-                  ),
-                )),
-                Expanded(child: GestureDetector(
-                  onTap: () => setState(() => _compteSource = 'flooz'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                        color: _compteSource == 'flooz' ? kCardCtx(context) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const OpLogo(operateur: 'flooz', height: 18),
-                      const SizedBox(width: 6),
-                      Text('Flooz · +228 ${NumerosManager.flooz}',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                              color: _compteSource == 'flooz' ? const Color(0xFF854F0B) : Colors.grey)),
-                    ]),
-                  ),
-                )),
-              ]),
-            ),
-            const SizedBox(height: 16),
-          ],
-          _FeeRow(
-            label: 'Frais Haya (3%)',
-            valeur:
-                'FCFA ${_frais.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
-            context: context,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('Suivant',
+                  style: TextStyle(
+                    color: valide ? Colors.white : kSubtextCtx(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  )),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward, size: 18,
+                  color: valide ? Colors.white : kSubtextCtx(context)),
+            ]),
           ),
-          const SizedBox(height: 6),
+        ),
+      ]),
+    );
+  }
+
+  // ─── ÉTAPE 3 : COMPTE SOURCE + CONFIRMATION ──────────────
+  Widget _buildEtape3(BuildContext context) {
+    final hasTmoney = NumerosManager.tmoney.isNotEmpty;
+    final hasFlooz  = NumerosManager.flooz.isNotEmpty;
+    final hasBoth   = hasTmoney && hasFlooz;
+    final opLabel   = _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
+    final srcLabel  = _compteSource == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
+
+    String fmt(int v) => v.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 16),
+        Text('Payer depuis',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextCtx(context))),
+        const SizedBox(height: 6),
+        Text('Choisir le compte source',
+            style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+        const SizedBox(height: 20),
+
+        if (hasBoth) ...[
+          Row(children: [
+            Expanded(child: _CompteBtn(
+              label: 'Tmoney', numero: NumerosManager.tmoney,
+              selected: _compteSource == 'tmoney',
+              onTap: () => setState(() => _compteSource = 'tmoney'),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _CompteBtn(
+              label: 'Flooz', numero: NumerosManager.flooz,
+              selected: _compteSource == 'flooz',
+              onTap: () => setState(() => _compteSource = 'flooz'),
+            )),
+          ]),
+          const SizedBox(height: 20),
+        ],
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: kCardCtx(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorderCtx(context)),
+          ),
+          child: Column(children: [
+            _FeeRow(label: 'Vers', valeur: '+228 ${_phoneCtrl.text}', context: context),
+            Divider(height: 16, color: kBorderCtx(context)),
+            _FeeRow(label: 'Réseau destinataire', valeur: opLabel, context: context),
+            Divider(height: 16, color: kBorderCtx(context)),
+            _FeeRow(label: 'Montant', valeur: 'FCFA ${fmt(_montant)}', context: context),
+            _FeeRow(label: 'Frais (3%)', valeur: 'FCFA ${fmt(_frais)}', context: context),
+            Divider(height: 16, color: kBorderCtx(context)),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Total débité',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextCtx(context))),
+              Text('FCFA ${fmt(_total)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kOrange)),
+            ]),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text('~$_eurTotal EUR',
+                  style: TextStyle(fontSize: 11, color: kSubtextCtx(context))),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+
+        if (_dejaPayee)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Total',
-                      style: TextStyle(
-                          fontSize: 14, color: kSubtextCtx(context))),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(
-                        'FCFA ${_total.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: kTextCtx(context))),
-                    if (_total > 0 && NumerosManager.conversionEurOn)
-                      Text('~$_eurTotal EUR',
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.grey)),
-                  ]),
-                ]),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: kVert.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kVert.withValues(alpha: 0.3)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.check_circle, color: kVert, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Cette demande a déjà été payée.',
+                    style: TextStyle(fontSize: 13, color: kVert, fontWeight: FontWeight.w500)),
+              ),
+            ]),
           ),
-          if (!_compteSourceValide && _op.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(14),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                  color: kOrange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kOrange.withValues(alpha: 0.3))),
-              child: Row(children: [
-                const Icon(Icons.info_outline, color: kOrange, size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(_messageCompteManquant,
-                      style: const TextStyle(color: kOrange, fontSize: 13,
-                          fontWeight: FontWeight.w500)),
-                ),
+
+        if (!_compteSourceValide) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: kRouge.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kRouge.withValues(alpha: 0.3)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.warning_amber_rounded, color: kRouge, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_messageCompteManquant,
+                    style: const TextStyle(fontSize: 12, color: kRouge)),
+                const SizedBox(height: 4),
                 GestureDetector(
                   onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) =>
-                          const ParametresScreen(ouvrirNumeros: true))),
-                  child: const Text('Ajouter',
-                      style: TextStyle(color: kOrange, fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline)),
+                      MaterialPageRoute(builder: (_) => const ParametresScreen())),
+                  child: const Text('Ajouter dans Paramètres →',
+                      style: TextStyle(fontSize: 12, color: kOrange, fontWeight: FontWeight.w600)),
                 ),
-              ]),
+              ])),
+            ]),
+          ),
+        ],
+
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: _peut ? _confirmerPin : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kOrange,
+              disabledBackgroundColor: kBorderCtx(context),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-          if (_dejaPayee)
-            Container(
-              padding: const EdgeInsets.all(14),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                  color: kVert.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kVert.withValues(alpha: 0.3))),
-              child: const Row(children: [
-                Icon(Icons.check_circle_outline, color: kVert, size: 18),
-                SizedBox(width: 10),
-                Text('Cette demande a déjà été payée.',
-                    style: TextStyle(color: kVert, fontSize: 13,
-                        fontWeight: FontWeight.w500)),
-              ]),
-            ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: (_peut && !_dejaPayee) ? _confirmerPin : null,
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.transparent
-                      : kNuit,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  side: Theme.of(context).brightness == Brightness.dark
-                      ? BorderSide(color: _peut ? kOrange : Colors.grey.shade700, width: 2)
-                      : BorderSide.none,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              child: Text(
-                _peut
-                    ? 'Envoyer via ${_op == "tmoney" ? "Tmoney" : "Flooz"}'
-                    : 'Confirmer le transfert',
-                style: TextStyle(
-                    color: _peut
-                        ? (Theme.of(context).brightness == Brightness.dark ? kOrange : Colors.white)
-                        : Colors.grey,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+            child: Text(
+              _dejaPayee
+                  ? 'Demande déjà payée'
+                  : _peut
+                      ? 'Envoyer via $srcLabel'
+                      : 'Envoyer',
+              style: TextStyle(
+                color: _peut ? Colors.white : kSubtextCtx(context),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          const Center(
-              child: Text('Sécurisé par Haya · Togo',
-                  style: TextStyle(fontSize: 11, color: Colors.grey))),
-        ]),
-      ),
+        ),
+      ]),
     );
   }
 }
@@ -916,8 +951,7 @@ class _FeeRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label,
-              style:
-                  TextStyle(fontSize: 12, color: kSubtextCtx(context))),
+              style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
           Text(valeur,
               style: TextStyle(
                   fontSize: 12,
@@ -925,5 +959,45 @@ class _FeeRow extends StatelessWidget {
                   color: kTextCtx(context))),
         ]),
       );
+}
+
+class _CompteBtn extends StatelessWidget {
+  final String label, numero;
+  final bool selected;
+  final VoidCallback onTap;
+  const _CompteBtn(
+      {required this.label,
+      required this.numero,
+      required this.selected,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? kNuit : kCardCtx(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: selected ? kNuit : kBorderCtx(context),
+              width: selected ? 2 : 1),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : kTextCtx(context))),
+          const SizedBox(height: 4),
+          Text('+228 $numero',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: selected ? Colors.white70 : kSubtextCtx(context))),
+        ]),
+      ),
+    );
+  }
 }
 
