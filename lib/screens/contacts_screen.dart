@@ -6,7 +6,8 @@ import '../services/managers.dart';
 import 'send_screen.dart';
 
 class ContactsScreen extends StatefulWidget {
-  const ContactsScreen({super.key});
+  final void Function(String numero)? onSelectNumero;
+  const ContactsScreen({super.key, this.onSelectNumero});
   @override
   State<ContactsScreen> createState() => _ContactsScreenState();
 }
@@ -80,8 +81,13 @@ class _ContactsScreenState extends State<ContactsScreen>
   }
 
   void _envoyerVers(String numero) {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => SendScreen(numeroInitial: numero)));
+    if (widget.onSelectNumero != null) {
+      widget.onSelectNumero!(numero);
+      Navigator.pop(context);
+    } else {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => SendScreen(numeroInitial: numero)));
+    }
   }
 
   void _ajouterFavori(String nom, String numero, String operateur) {

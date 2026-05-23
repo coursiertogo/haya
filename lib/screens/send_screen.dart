@@ -461,33 +461,31 @@ class _SendScreenState extends State<SendScreen> {
             if (widget.numeroInitial == null) ...[
               IconButton(
                 icon: const Icon(Icons.qr_code_scanner, color: kOrange),
-                onPressed: () async {
-                  final result = await Navigator.push<String>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-                  );
-                  if (result != null && mounted) {
-                    final digits = result.replaceAll(RegExp(r'\D'), '');
-                    final tel = digits.length > 8 ? digits.substring(digits.length - 8) : digits;
-                    _phoneCtrl.text = tel;
-                    setState(() => _op = detectOperateur(tel));
-                  }
-                },
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QrScannerScreen(
+                      onSelectNumero: (numero, operateur) {
+                        _phoneCtrl.text = numero;
+                        setState(() => _op = operateur ?? detectOperateur(numero));
+                      },
+                    ),
+                  ),
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.contacts_outlined, color: kOrange),
-                onPressed: () async {
-                  final result = await Navigator.push<String>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ContactsScreen()),
-                  );
-                  if (result != null && mounted) {
-                    final digits = result.replaceAll(RegExp(r'\D'), '');
-                    final tel = digits.length > 8 ? digits.substring(digits.length - 8) : digits;
-                    _phoneCtrl.text = tel;
-                    setState(() => _op = detectOperateur(tel));
-                  }
-                },
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ContactsScreen(
+                      onSelectNumero: (numero) {
+                        _phoneCtrl.text = numero;
+                        setState(() => _op = detectOperateur(numero));
+                      },
+                    ),
+                  ),
+                ),
               ),
             ],
           ]),

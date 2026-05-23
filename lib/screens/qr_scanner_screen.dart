@@ -4,7 +4,8 @@ import '../constants.dart';
 import 'send_screen.dart';
 
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({super.key});
+  final void Function(String numero, String? operateur)? onSelectNumero;
+  const QrScannerScreen({super.key, this.onSelectNumero});
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
@@ -40,15 +41,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     if (numero != null && numero.length == 8) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SendScreen(
-            numeroInitial: numero,
-            operateurInitial: operateur,
+      if (widget.onSelectNumero != null) {
+        widget.onSelectNumero!(numero, operateur);
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SendScreen(
+              numeroInitial: numero,
+              operateurInitial: operateur,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } else {
       setState(() => _traite = false);
     }
