@@ -7,11 +7,13 @@ class NumerosManager {
   static String _flooz = '';
   static bool _notificationsOn = true;
   static bool _conversionEurOn = false;
+  static bool _biometrieOn = true;
 
   static String get tmoney => _tmoney;
   static String get flooz => _flooz;
   static bool get notificationsOn => _notificationsOn;
   static bool get conversionEurOn => _conversionEurOn;
+  static bool get biometrieOn => _biometrieOn;
 
   static Future<void> charger() async {
     final prefs = await SharedPreferences.getInstance();
@@ -19,6 +21,7 @@ class NumerosManager {
     _flooz = prefs.getString('num_flooz') ?? '';
     _notificationsOn = prefs.getBool('notifications_on') ?? true;
     _conversionEurOn = prefs.getBool('conversion_eur_on') ?? false;
+    _biometrieOn = prefs.getBool('biometrie_on') ?? true;
   }
 
   static Future<void> setTmoney(String v) async {
@@ -43,6 +46,12 @@ class NumerosManager {
     _conversionEurOn = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('conversion_eur_on', v);
+  }
+
+  static Future<void> setBiometrie(bool v) async {
+    _biometrieOn = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometrie_on', v);
   }
 }
 
@@ -112,12 +121,21 @@ class UserManager {
   static String telephone = '';
   static int id = 0;
   static String token = '';
+  static String pays = 'TG';
 
   static String get nomComplet => '$prenom $nom'.trim();
   static String get initiales {
     final n = prenom.isNotEmpty ? prenom[0].toUpperCase() : '';
     final p = nom.isNotEmpty ? nom[0].toUpperCase() : '';
     return '$n$p';
+  }
+
+  static String get drapeau {
+    switch (pays) {
+      case 'BJ': return '🇧🇯';
+      case 'BF': return '🇧🇫';
+      default:   return '🇹🇬';
+    }
   }
 
   static Future<void> charger() async {
@@ -128,8 +146,10 @@ class UserManager {
     telephone = prefs.getString('user_telephone') ?? '';
     id = prefs.getInt('user_id') ?? 0;
     token = prefs.getString('user_token') ?? '';
+    pays = prefs.getString('user_pays') ?? 'TG';
     HayaApiService.utilisateurId = id;
     HayaApiService.token = token;
+    HayaApiService.telephone = telephone;
   }
 
   static Future<void> sauvegarder() async {
@@ -140,9 +160,20 @@ class UserManager {
     await prefs.setString('user_telephone', telephone);
     await prefs.setInt('user_id', id);
     await prefs.setString('user_token', token);
+    await prefs.setString('user_pays', pays);
   }
 
   static Future<void> effacer() async {
+    // Déconnexion : efface le token mais garde téléphone + PIN
+    // pour permettre la reconnexion rapide par PIN sur le même appareil
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_token');
+    token = '';
+    HayaApiService.token = '';
+  }
+
+  static Future<void> effacerComplet() async {
+    // Réinitialisation totale (changement de compte)
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_nom');
     await prefs.remove('user_prenom');
@@ -150,7 +181,7 @@ class UserManager {
     await prefs.remove('user_telephone');
     await prefs.remove('user_id');
     await prefs.remove('user_token');
-    token = '';
+    nom = ''; prenom = ''; email = ''; telephone = ''; id = 0; token = '';
     HayaApiService.token = '';
   }
 }

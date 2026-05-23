@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class FeexPayService {
   // ─── CONFIGURATION ───────────────────────────────────
   // ⚠️ Remplace par ta vraie clé API sandbox depuis le menu Développeurs
-  static const String _apiKey = 'test_Hg7Kjl3ZAM63UuIUpuudD9nKuu3ZAM67Kjl3Uuhn';
+  static const String _apiKey = 'fp_xJCr90csVp0ZjDOaslH2biMRuey7d0MbZDY2D6SmXKJM3tabayLKwLXseTfxaaws';
   static const String _shopId = 'yl8mn0u9Lc0R7p6';
 
   // URLs API FeexPay
@@ -13,8 +13,9 @@ class FeexPayService {
   static const String _urlMoov =
       'https://api-v2.feexpay.me/api/transactions/public/requesttopay/moov_tg';
 
-  // ⚠️ MODE SANDBOX — mettre à false quand compte validé en production
-  static const bool _modeSandbox = true;
+  // MODE PRODUCTION
+  static const bool _modeSandbox = false;
+  static bool get modeSandbox => _modeSandbox;
 
   // ─── INITIER UN PAIEMENT ─────────────────────────────
   static Future<Map<String, dynamic>> initierPaiement({
@@ -61,14 +62,23 @@ class FeexPayService {
           )
           .timeout(const Duration(seconds: 30));
 
+      print('FEEXPAY STATUS: ${response.statusCode}');
+      print('FEEXPAY BODY: ${response.body}');
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      // FeexPay retourne 200, 201 ou 202 quand l'USSD est envoyé
+      // Tout code < 400 = transaction initiée (USSD envoyé au téléphone)
+      if (response.statusCode < 400) {
+        // FeexPay peut nommer l'ID différemment selon la version
+        final txId = (data['id'] ?? data['transactionId'] ??
+            data['transaction_id'] ?? data['uid'] ?? data['_id'] ?? '')
+            .toString();
         return {
           'success': true,
           'reference': data['reference'] ?? reference,
-          'transactionId': data['id'] ?? '',
-          'message': 'Paiement initié avec succès',
+          'transactionId': txId,
+          'rawResponse': data.toString(),
+          'message': 'Confirme sur ton téléphone via le code USSD',
         };
       } else {
         return {
@@ -84,6 +94,66 @@ class FeexPayService {
     }
   }
 
+  // ─── PAYOUT via backend VPS (IP whitelisted) ─────────
+  static Future<Map<String, dynamic>> payerDestinataire({
+    required String telephone,
+    required int montant,
+    required String reseau,
+    required String reference,
+  }) async {
+    if (_modeSandbox) return {'success': true};
+    try {
+      final response = await http.post(
+        Uri.parse('https://haya.flexix.nl/api/payout'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'telephone': telephone,
+          'montant': montant,
+          'operateur': reseau,
+          'reference': reference,
+        }),
+      ).timeout(const Duration(seconds: 35));
+      if (response.statusCode == 200) {
+        return {'success': true};
+      }
+      final data = jsonDecode(response.body);
+      final msg = data['message']?.toString() ?? '';
+      return {
+        'success': false,
+        'message': msg.toLowerCase().contains('subscriber') ||
+                msg.toLowerCase().contains('invalid') ||
+                msg.toLowerCase().contains('not found')
+            ? 'Le numéro destinataire n\'est pas enregistré sur ${reseau == 'tmoney' ? 'Tmoney' : 'Flooz'}.'
+            : msg.isEmpty ? 'Échec de l\'envoi au destinataire.' : msg,
+      };
+    } catch (_) {
+      return {'success': false, 'message': 'Erreur de connexion lors de l\'envoi.'};
+    }
+  }
+
+  // ─── VÉRIFIER STATUT TRANSACTION ─────────────────────
+  static Future<String> verifierStatut(String transactionId) async {
+    if (_modeSandbox) return 'SUCCESSFUL';
+    try {
+      final response = await http.get(
+        Uri.parse('https://api-v2.feexpay.me/api/transactions/public/$transactionId'),
+        headers: {'Authorization': 'Bearer $_apiKey'},
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final statut = (data['status'] ?? data['statut'] ?? '').toString().toUpperCase();
+        if (statut.contains('SUCCESS') || statut.contains('COMPLETED') || statut.contains('PAID')) {
+          return 'SUCCESSFUL';
+        }
+        if (statut.contains('FAIL') || statut.contains('CANCEL') || statut.contains('REJECT')) {
+          return 'FAILED';
+        }
+        return 'PENDING';
+      }
+    } catch (_) {}
+    return 'PENDING';
+  }
+
   // ─── CONVERTIR OPÉRATEUR ─────────────────────────────
   static String convertirOperateur(String operateur) {
     if (operateur == 'tmoney') return 'tmoney';
@@ -97,11 +167,11 @@ class FeexPayService {
     return 'HAYA_$timestamp';
   }
 
-  // ─── CALCUL DES FRAIS HAYA (1%) ──────────────────────
+  // ─── CALCUL DES FRAIS HAYA (3%) ──────────────────────
   static int calculerFrais(int montant) {
     if (montant < 1000) return 0; // Montant minimum 1000 FCFA
-    final frais = (montant * 0.01).round();
-    return frais < 10 ? 10 : frais; // Minimum 10 FCFA
+    final frais = (montant * 0.03).round();
+    return frais < 30 ? 30 : frais; // Minimum 30 FCFA
   }
 
   static int montantTotal(int montant) => montant + calculerFrais(montant);

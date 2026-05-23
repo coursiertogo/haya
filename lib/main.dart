@@ -28,7 +28,7 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
   DateTime? _tempsPause;
   bool _estVerrouille = false;
 
-  static const _delaiVerrouillage = Duration(minutes: 2);
+  static const _delaiVerrouillage = Duration(minutes: 5);
 
   @override
   void initState() {
@@ -61,6 +61,16 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
         onDeverrouille: () {
           _estVerrouille = false;
           _resetTimer();
+          // Rafraîchir le token silencieusement
+          HayaApiService.inscrireUtilisateur(
+            prenom: UserManager.prenom,
+            telephone: UserManager.telephone,
+          ).then((result) {
+            if (result != null) {
+              UserManager.token = HayaApiService.token;
+              UserManager.sauvegarder();
+            }
+          });
         },
       ),
     ));
@@ -156,7 +166,10 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
   void _initDeepLinks() {
     final appLinks = AppLinks();
     appLinks.getInitialLink().then((uri) {
-      if (uri != null) _handleDeepLink(uri);
+      if (uri != null) {
+        // Délai pour laisser SplashScreen terminer sa navigation
+        Future.delayed(const Duration(seconds: 3), () => _handleDeepLink(uri));
+      }
     });
     _linkSub = appLinks.uriLinkStream.listen(_handleDeepLink);
   }
@@ -179,7 +192,16 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
         objetInitial: objet,
         refInitial: ref,
       ),
-    ));
+    )).then((_) async {
+      // Quand SendScreen fermé : supprimer de pending pour éviter boucle infinie
+      if (ref != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final liste = prefs.getStringList('pending_to_pay') ?? [];
+        liste.remove(ref);
+        await prefs.setStringList('pending_to_pay', liste);
+        await prefs.remove('pending_detail_$ref');
+      }
+    });
   }
 
   Future<void> _sauvegarderRefEnAttente(String ref, String numero, int? montant, String? operateur, String? objet) async {
@@ -211,43 +233,85 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
       final operateur = parts[2].isNotEmpty ? parts[2] : null;
       final objet = parts[3].isNotEmpty ? parts[3] : null;
 
-      _scaffoldKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Row(children: [
-            const Icon(Icons.notifications_outlined, color: kOrange, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Paiement en attente',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  if (objet != null)
-                    Text(objet, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
+      final overlay = _navigatorKey.currentState?.overlay;
+      if (overlay == null) continue;
+      late OverlayEntry entry;
+      entry = OverlayEntry(
+        builder: (ctx) {
+          final top = MediaQuery.of(ctx).padding.top + 10;
+          return Positioned(
+            top: top, left: 16, right: 16,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                    color: kNuit,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 16, offset: const Offset(0, 4))]),
+                child: Row(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                        color: kOrange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.notifications_outlined,
+                        color: kOrange, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Paiement en attente',
+                        style: TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    if (objet != null)
+                      Text(objet, style: const TextStyle(
+                          color: Colors.white60, fontSize: 12)),
+                  ])),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      entry.remove();
+                      _navigatorKey.currentState?.push(MaterialPageRoute(
+                        builder: (_) => SendScreen(
+                          numeroInitial: numero,
+                          montantInitial: montant,
+                          operateurInitial: operateur,
+                          objetInitial: objet,
+                          refInitial: ref,
+                        ),
+                      )).then((_) async {
+                        final prefs = await SharedPreferences.getInstance();
+                        final liste = prefs.getStringList('pending_to_pay') ?? [];
+                        liste.remove(ref);
+                        await prefs.setStringList('pending_to_pay', liste);
+                        await prefs.remove('pending_detail_$ref');
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: kOrange,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Text('Payer',
+                          style: TextStyle(color: Colors.white,
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ]),
               ),
             ),
-          ]),
-          backgroundColor: kNuit,
-          duration: const Duration(seconds: 6),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          action: SnackBarAction(
-            label: 'Payer',
-            textColor: kOrange,
-            onPressed: () => _navigatorKey.currentState?.push(MaterialPageRoute(
-              builder: (_) => SendScreen(
-                numeroInitial: numero,
-                montantInitial: montant,
-                operateurInitial: operateur,
-                objetInitial: objet,
-                refInitial: ref,
-              ),
-            )),
-          ),
-        ),
+          );
+        },
       );
+      overlay.insert(entry);
+      Future.delayed(const Duration(seconds: 6), () {
+        try { entry.remove(); } catch (_) {}
+      });
     }
     if (aRetirer.isNotEmpty) {
       liste.removeWhere(aRetirer.contains);
@@ -278,11 +342,11 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.light,
-          scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+          scaffoldBackgroundColor: const Color(0xFFF5F4FF),
           cardColor: const Color(0xFFFFFFFF),
           colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFFF97316),
-              primary: const Color(0xFF0D0D2B),
+              primary: const Color(0xFF5568D9),
               surface: const Color(0xFFFFFFFF),
               brightness: Brightness.light),
           useMaterial3: true,
@@ -290,13 +354,13 @@ class _HayaAppState extends State<HayaApp> with WidgetsBindingObserver {
         ),
         darkTheme: ThemeData(
           brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xFF080818),
-          cardColor: const Color(0xFF141430),
+          scaffoldBackgroundColor: const Color(0xFF0D1226),
+          cardColor: const Color(0xFF1A2040),
           colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFFF97316),
-              brightness: Brightness.dark,
               primary: const Color(0xFFF97316),
-              surface: const Color(0xFF141430)),
+              surface: const Color(0xFF1A2040),
+              brightness: Brightness.dark),
           useMaterial3: true,
           fontFamily: 'Roboto',
         ),

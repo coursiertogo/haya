@@ -8,6 +8,8 @@ import '../feexpay_service.dart';
 import 'pin_screen.dart';
 import 'success_screen.dart';
 import 'contacts_screen.dart';
+import 'qr_scanner_screen.dart';
+import 'parametres_screen.dart';
 
 class SendScreen extends StatefulWidget {
   final String? numeroInitial;
@@ -31,12 +33,13 @@ class _SendScreenState extends State<SendScreen> {
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _amountCtrl;
   String _op = '';
+  bool _dejaPayee = false;
+  String _compteSource = '';
 
   @override
   void initState() {
     super.initState();
-    _phoneCtrl =
-        TextEditingController(text: widget.numeroInitial ?? '');
+    _phoneCtrl = TextEditingController(text: widget.numeroInitial ?? '');
     _amountCtrl = TextEditingController(
         text: widget.montantInitial != null
             ? widget.montantInitial.toString()
@@ -45,11 +48,39 @@ class _SendScreenState extends State<SendScreen> {
       _op = detectOperateur(widget.numeroInitial!);
     }
     if (widget.operateurInitial != null) _op = widget.operateurInitial!;
+    if (widget.refInitial != null) _verifierStatutDemande();
+    _initCompteSource();
+  }
+
+  void _initCompteSource() {
+    // Si demande de paiement → forcer le compte selon l'opérateur du créateur
+    if (widget.operateurInitial != null) {
+      _compteSource = widget.operateurInitial!;
+      return;
+    }
+    // Sinon → compte par défaut
+    if (NumerosManager.flooz.isNotEmpty) {
+      _compteSource = 'flooz';
+    } else {
+      _compteSource = 'tmoney';
+    }
+  }
+
+  Future<void> _verifierStatutDemande() async {
+    HayaApiService.enregistrerPayeur(widget.refInitial!);
+    final statut = await HayaApiService.getStatutDemande(widget.refInitial!);
+    if (statut == 'paye' && mounted) {
+      setState(() => _dejaPayee = true);
+      final prefs = await SharedPreferences.getInstance();
+      final liste = prefs.getStringList('pending_to_pay') ?? [];
+      liste.remove(widget.refInitial);
+      await prefs.setStringList('pending_to_pay', liste);
+      await prefs.remove('pending_detail_${widget.refInitial}');
+    }
   }
 
   int get _montant => int.tryParse(_amountCtrl.text) ?? 0;
-  int get _frais =>
-      _montant > 0 ? (_montant * 0.01).round().clamp(10, 999999) : 0;
+  int get _frais => FeexPayService.calculerFrais(_montant);
   int get _total => _montant + _frais;
   String get _eur =>
       _montant > 0 ? TauxChangeService.fcfaVersEuros(_montant) : '0.00';
@@ -58,7 +89,21 @@ class _SendScreenState extends State<SendScreen> {
   bool get _peut =>
       _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length == 8 &&
       (_op == 'tmoney' || _op == 'flooz') &&
-      _montant > 0;
+      _montant > 0 &&
+      !_dejaPayee &&
+      _compteSourceValide;
+
+  bool get _compteSourceValide {
+    if (_compteSource == 'tmoney') return NumerosManager.tmoney.isNotEmpty;
+    if (_compteSource == 'flooz') return NumerosManager.flooz.isNotEmpty;
+    return false;
+  }
+
+  String get _messageCompteManquant {
+    final op = _compteSource == 'tmoney' ? 'Tmoney' : 'Flooz';
+    return 'Ajoute ton numéro $op dans Paramètres pour payer.';
+  }
+
 
   void _confirmerPin() {
     if (!PinManager.pinDefini) {
@@ -118,10 +163,17 @@ class _SendScreenState extends State<SendScreen> {
             montant: _montant));
     await Future.delayed(const Duration(seconds: 1));
     final ref = FeexPayService.genererReference();
+
+    // requesttopay = débiter le compte choisi par l'expéditeur
+    final senderTel = _compteSource == 'tmoney'
+        ? NumerosManager.tmoney
+        : NumerosManager.flooz;
+    // Collection = montantTotal (montant + 3% frais Haya)
+    // Payout = _montant (montant exact de la demande)
     final result = await FeexPayService.initierPaiement(
-      telephone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
-      montant: _montant,
-      reseau: FeexPayService.convertirOperateur(_op),
+      telephone: senderTel,
+      montant: FeexPayService.montantTotal(_montant),
+      reseau: _compteSource,
       reference: ref,
     );
     if (!mounted) return;
@@ -134,25 +186,27 @@ class _SendScreenState extends State<SendScreen> {
         operateur: _op == 'tmoney' ? 'Tmoney' : 'Flooz',
         reference: ref,
       );
+      // marquerDemandePaye est fait dans SuccessScreen après confirmation USSD
+      if (!mounted) return;
+      final route = MaterialPageRoute(
+          builder: (_) => SuccessScreen(
+                montant: _montant,
+                numero: _phoneCtrl.text,
+                operateur: _op == 'tmoney'
+                    ? 'Mixx by Yas (Tmoney)'
+                    : 'Flooz (Moov Africa)',
+                frais: _frais,
+                transactionId: result['transactionId'] ?? '',
+                numeroDestinataire: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+                operateurDestinataire: _op,
+                referenceHaya: ref,
+                demandeRef: widget.refInitial,
+              ));
       if (widget.refInitial != null) {
-        HayaApiService.marquerDemandePaye(widget.refInitial!);
-        SharedPreferences.getInstance().then((prefs) {
-          final liste = prefs.getStringList('pending_to_pay') ?? [];
-          liste.remove(widget.refInitial);
-          prefs.setStringList('pending_to_pay', liste);
-        });
+        Navigator.pushReplacement(context, route);
+      } else {
+        Navigator.push(context, route);
       }
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => SuccessScreen(
-                    montant: _montant,
-                    numero: _phoneCtrl.text,
-                    operateur: _op == 'tmoney'
-                        ? 'Mixx by Yas (Tmoney)'
-                        : 'Flooz (Moov Africa)',
-                    frais: _frais,
-                  )));
     } else {
       if (!mounted) return;
       showDialog(
@@ -374,14 +428,25 @@ class _SendScreenState extends State<SendScreen> {
                     child: Icon(Icons.lock_outline,
                         size: 16, color: Colors.grey))
               else
-                IconButton(
-                  icon: const Icon(Icons.contacts_outlined,
-                      color: kOrange, size: 22),
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ContactsScreen())),
-                ),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_scanner,
+                        color: Colors.grey, size: 22),
+                    onPressed: () async {
+                      await Navigator.push(context,
+                          MaterialPageRoute(
+                              builder: (_) => const QrScannerScreen()));
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.contacts_outlined,
+                        color: kOrange, size: 22),
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ContactsScreen())),
+                  ),
+                ]),
             ]),
           ),
           const SizedBox(height: 8),
@@ -401,16 +466,7 @@ class _SendScreenState extends State<SendScreen> {
                               ? const Color(0xFFAFA9EC)
                               : const Color(0xFFFAC775))),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(
-                      width: 18, height: 18,
-                      decoration: BoxDecoration(
-                          color: _op == 'tmoney' ? kNuit : const Color(0xFF854F0B),
-                          borderRadius: BorderRadius.circular(5)),
-                      child: Center(
-                        child: Text(_op == 'tmoney' ? 'M' : 'F',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                    ),
+                    OpLogo(operateur: _op, height: 20),
                     const SizedBox(width: 6),
                     Text(
                         _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)',
@@ -437,8 +493,55 @@ class _SendScreenState extends State<SendScreen> {
               ]),
             ),
           const SizedBox(height: 16),
+          if (NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty
+              && widget.refInitial == null) ...[
+            Text('Payer depuis',
+                style: TextStyle(fontSize: 13, color: kSubtextCtx(context))),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                  color: kInputCtx(context),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _compteSource = 'tmoney'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                        color: _compteSource == 'tmoney' ? kCardCtx(context) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const OpLogo(operateur: 'tmoney', height: 18),
+                      const SizedBox(width: 6),
+                      Text('Tmoney · +228 ${NumerosManager.tmoney}',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                              color: _compteSource == 'tmoney' ? kNuit : Colors.grey)),
+                    ]),
+                  ),
+                )),
+                Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _compteSource = 'flooz'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                        color: _compteSource == 'flooz' ? kCardCtx(context) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const OpLogo(operateur: 'flooz', height: 18),
+                      const SizedBox(width: 6),
+                      Text('Flooz · +228 ${NumerosManager.flooz}',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                              color: _compteSource == 'flooz' ? const Color(0xFF854F0B) : Colors.grey)),
+                    ]),
+                  ),
+                )),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
           _FeeRow(
-            label: 'Frais Haya (1%)',
+            label: 'Frais Haya (3%)',
             valeur:
                 'FCFA ${_frais.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
             context: context,
@@ -466,12 +569,55 @@ class _SendScreenState extends State<SendScreen> {
                   ]),
                 ]),
           ),
+          if (!_compteSourceValide && _op.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                  color: kOrange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: kOrange.withValues(alpha: 0.3))),
+              child: Row(children: [
+                const Icon(Icons.info_outline, color: kOrange, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(_messageCompteManquant,
+                      style: const TextStyle(color: kOrange, fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) =>
+                          const ParametresScreen(ouvrirNumeros: true))),
+                  child: const Text('Ajouter',
+                      style: TextStyle(color: kOrange, fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline)),
+                ),
+              ]),
+            ),
+          if (_dejaPayee)
+            Container(
+              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                  color: kVert.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: kVert.withValues(alpha: 0.3))),
+              child: const Row(children: [
+                Icon(Icons.check_circle_outline, color: kVert, size: 18),
+                SizedBox(width: 10),
+                Text('Cette demande a déjà été payée.',
+                    style: TextStyle(color: kVert, fontSize: 13,
+                        fontWeight: FontWeight.w500)),
+              ]),
+            ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _peut ? _confirmerPin : null,
+              onPressed: (_peut && !_dejaPayee) ? _confirmerPin : null,
               style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).brightness == Brightness.dark
                       ? Colors.transparent
@@ -787,3 +933,4 @@ class _FeeRow extends StatelessWidget {
         ]),
       );
 }
+

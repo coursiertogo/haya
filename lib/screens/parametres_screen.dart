@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/managers.dart';
+import '../services/auth_utils.dart';
+import '../services/haya_api_service.dart';
 import 'pin_screen.dart';
-import 'login_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class ParametresScreen extends StatefulWidget {
-  const ParametresScreen({super.key});
+  final bool ouvrirNumeros;
+  const ParametresScreen({super.key, this.ouvrirNumeros = false});
   @override
   State<ParametresScreen> createState() => _ParametresScreenState();
 }
@@ -20,6 +22,11 @@ class _ParametresScreenState extends State<ParametresScreen> {
   void initState() {
     super.initState();
     _tmoneyCtrl.text = NumerosManager.tmoney;
+    if (widget.ouvrirNumeros) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _gestionNumeros(setState);
+      });
+    }
     _floozCtrl.text = NumerosManager.flooz;
     _nomCtrl.text = UserManager.nomComplet;
   }
@@ -106,11 +113,29 @@ class _ParametresScreenState extends State<ParametresScreen> {
           ),
           const SizedBox(height: 8),
 
-          // ─── OPÉRATIONS ──────────────────────────────
+          // ─── MES NUMÉROS ─────────────────────────────
           _Section(
-            icon: Icons.tune,
-            titre: 'Opérations',
+            icon: Icons.phone_android,
+            titre: 'Mes numéros',
             couleur: const Color(0xFF3B82F6),
+            children: [
+              StatefulBuilder(builder: (ctx, setN) => _TuileSub(
+                icon: Icons.phone_android,
+                label: 'Tmoney / Flooz',
+                sub: NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty
+                    ? '${NumerosManager.tmoney.isNotEmpty ? "T: +228 ${NumerosManager.tmoney}" : ""}${NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty ? " · " : ""}${NumerosManager.flooz.isNotEmpty ? "F: +228 ${NumerosManager.flooz}" : ""}'
+                    : 'Non définis',
+                onTap: () => _gestionNumeros(setN),
+              )),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // ─── SÉCURITÉ ────────────────────────────────
+          _Section(
+            icon: Icons.shield_outlined,
+            titre: 'Sécurité',
+            couleur: kRouge,
             children: [
               _Tuile(
                 icon: Icons.lock_outline,
@@ -133,13 +158,14 @@ class _ParametresScreenState extends State<ParametresScreen> {
                             ))),
               ),
               _divider(context),
-              StatefulBuilder(builder: (ctx, setN) => _TuileSub(
-                icon: Icons.phone_android,
-                label: 'Numéros Tmoney / Flooz',
-                sub: NumerosManager.tmoney.isNotEmpty || NumerosManager.flooz.isNotEmpty
-                    ? '${NumerosManager.tmoney.isNotEmpty ? "T: +228 ${NumerosManager.tmoney}" : ""}${NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty ? " · " : ""}${NumerosManager.flooz.isNotEmpty ? "F: +228 ${NumerosManager.flooz}" : ""}'
-                    : 'Non définis',
-                onTap: () => _gestionNumeros(setN),
+              StatefulBuilder(builder: (ctx, setS) => _Toggle(
+                icon: Icons.fingerprint,
+                label: 'Déverrouillage biométrique',
+                value: NumerosManager.biometrieOn,
+                onChanged: (v) async {
+                  await NumerosManager.setBiometrie(v);
+                  setS(() {});
+                },
               )),
             ],
           ),
@@ -151,16 +177,6 @@ class _ParametresScreenState extends State<ParametresScreen> {
             titre: 'Préférences',
             couleur: kVert,
             children: [
-              StatefulBuilder(builder: (ctx, setS) => _Toggle(
-                icon: Icons.euro_outlined,
-                label: 'Conversion EUR',
-                value: NumerosManager.conversionEurOn,
-                onChanged: (v) async {
-                  await NumerosManager.setConversionEur(v);
-                  setS(() {});
-                },
-              )),
-              _divider(context),
               StatefulBuilder(builder: (ctx, setS) => _Toggle(
                 icon: Icons.notifications_outlined,
                 label: 'Notifications',
@@ -195,22 +211,17 @@ class _ParametresScreenState extends State<ParametresScreen> {
               _Tuile(
                 icon: Icons.privacy_tip_outlined,
                 label: 'Politique de confidentialité',
-                onTap: () async {
-                  final url = Uri.parse(
-                      'https://coursiertogo.github.io/haya-privacy/privacy_policy.html');
-                  if (await canLaunchUrl(url)) {
-                    launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
               ),
               _divider(context),
               _Tuile(
                 icon: Icons.info_outline,
-                label: 'Version 1.0.0 · Flexix · Pays-Bas',
+                label: 'Version 1.2.0 · Flexix · Pays-Bas',
                 onTap: () => showAboutDialog(
                   context: context,
                   applicationName: 'Haya',
-                  applicationVersion: '1.0.0',
+                  applicationVersion: '1.2.0',
                   applicationLegalese: "Envoie. C'est parti.\n© 2026 Flexix",
                 ),
                 trailing: false,
@@ -251,13 +262,8 @@ class _ParametresScreenState extends State<ParametresScreen> {
                           style: TextStyle(color: Colors.grey))),
                   TextButton(
                     onPressed: () async {
-                      await UserManager.effacer();
-                      if (!context.mounted) return;
-                      Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
-                          (r) => false);
+                      Navigator.pop(ctx);
+                      await seDeconnecter(context);
                     },
                     child: const Text('Déconnecter',
                         style: TextStyle(
@@ -304,11 +310,11 @@ class _ParametresScreenState extends State<ParametresScreen> {
               Text('Utilisés pour les demandes de paiement',
                   style: TextStyle(fontSize: 12, color: kSubtextCtx(ctx))),
               const SizedBox(height: 20),
-              _NumChamp(label: 'Numéro Tmoney', hint: '90123456',
+              _NumChamp(label: 'Numéro Tmoney', hint: 'Votre numéro Tmoney',
                   controller: _tmoneyCtrl, valide: tmoneyValide,
                   msgErreur: "Pas un numéro Tmoney", onChanged: () => setM(() {})),
               const SizedBox(height: 12),
-              _NumChamp(label: 'Numéro Flooz', hint: '94123456',
+              _NumChamp(label: 'Numéro Flooz', hint: 'Votre numéro Flooz',
                   controller: _floozCtrl, valide: floozValide,
                   msgErreur: "Pas un numéro Flooz", onChanged: () => setM(() {})),
               const SizedBox(height: 20),
@@ -318,13 +324,19 @@ class _ParametresScreenState extends State<ParametresScreen> {
                   onPressed: peutSauvegarder ? () async {
                     await NumerosManager.setTmoney(_tmoneyCtrl.text);
                     await NumerosManager.setFlooz(_floozCtrl.text);
+                    final ok = await HayaApiService.sauvegarderNumeros(
+                      tmoney: _tmoneyCtrl.text,
+                      flooz: _floozCtrl.text,
+                    );
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx);
                     refresh(() {});
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Numéros sauvegardés !'),
-                        backgroundColor: kVert,
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ok
+                            ? 'Numéros sauvegardés !'
+                            : 'Sauvegardé localement (hors ligne)'),
+                        backgroundColor: ok ? kVert : Colors.orange,
                         behavior: SnackBarBehavior.floating));
                   } : null,
                   style: ElevatedButton.styleFrom(

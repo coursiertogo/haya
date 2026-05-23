@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../services/managers.dart';
 import '../services/haya_api_service.dart';
+import '../services/auth_utils.dart';
 import 'contacts_screen.dart';
 import 'parametres_screen.dart';
-import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -143,15 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               height: 50,
               child: OutlinedButton.icon(
-                onPressed: () async {
-                  await UserManager.effacer();
-                  if (!context.mounted) return;
-                  Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const OnboardingScreen()),
-                      (r) => false);
-                },
+                onPressed: () => seDeconnecter(context),
                 icon: const Icon(Icons.logout,
                     color: kRouge, size: 18),
                 label: const Text('Se déconnecter',

@@ -1,21 +1,24 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../services/haya_api_service.dart';
 import '../services/managers.dart';
+import '../services/auth_utils.dart';
 import 'pin_screen.dart';
 import 'main_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final bool modeConnexion;
+  const OnboardingScreen({super.key, this.modeConnexion = false});
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   // etape: 1=bienvenue, 2=nom, 3=tel, 4=otp, 5=connexion-tel
-  int _etape = 1;
+  late int _etape;
   bool _chargement = false;
   String _erreur = '';
   bool _erreurConnexion = false; // numéro inconnu sur cet appareil
@@ -26,6 +29,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _phoneConnexionCtrl = TextEditingController();
   bool _otpEnvoye = false;
   String _telSauvegarde = '';
+  bool _modeConnexionOTP = false; // connexion sur nouvel appareil
+
+  @override
+  void initState() {
+    super.initState();
+    _etape = widget.modeConnexion ? 5 : 1;
+    if (widget.modeConnexion && UserManager.telephone.isNotEmpty) {
+      _phoneConnexionCtrl.text = UserManager.telephone;
+    }
+  }
 
   @override
   void dispose() {
@@ -53,7 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         body: jsonEncode({'telephone': tel}),
       ).timeout(const Duration(seconds: 10));
       final data = jsonDecode(response.body);
-      if (data['dev_otp'] != null) _otpCtrl.text = data['dev_otp'];
+      if (kDebugMode && data['dev_otp'] != null) _otpCtrl.text = data['dev_otp'];
     } catch (_) {}
     if (mounted) setState(() { _chargement = false; _otpEnvoye = true; });
   }
@@ -74,11 +87,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         _telSauvegarde = tel;
-        // Sauvegarder le token si présent (utilisateur existant)
         if (data['token'] != null) {
           UserManager.token = data['token'];
           HayaApiService.token = data['token'];
         }
+
+        if (_modeConnexionOTP) {
+          // Reconnexion nouvel appareil
+          if (data['nouveau'] == true) {
+            // Numéro inconnu en DB → pas de compte
+            setState(() => _erreur = 'Aucun compte trouvé. Inscris-toi d\'abord.');
+            return;
+          }
+          // Compte existant → sauvegarder + créer PIN sur cet appareil
+          final u = data['utilisateur'];
+          UserManager.prenom = u['prenom'] ?? '';
+          UserManager.nom = u['nom'] ?? '';
+          UserManager.telephone = tel;
+          UserManager.id = u['id'] ?? 0;
+          HayaApiService.utilisateurId = UserManager.id;
+          await UserManager.sauvegarder();
+          await appliquerNumeros(u);
+          if (!mounted) return;
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => PinScreen(
+              titre: 'Nouveau PIN',
+              sousTitre: 'Crée un PIN pour cet appareil.',
+              modeDefinition: true,
+              onSuccess: (pin) async {
+                await PinManager.definirPin(pin);
+                if (!mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainScreen()),
+                  (route) => false,
+                );
+              },
+            ),
+          ));
+          return;
+        }
+
         _allerVersPIN();
       } else {
         setState(() => _erreur = data['message'] ?? 'Code incorrect.');
@@ -105,10 +154,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             UserManager.prenom = _nomCtrl.text.trim();
             UserManager.nom = '';
             UserManager.telephone = _telSauvegarde;
-            UserManager.id = 1;
-            HayaApiService.utilisateurId = 1;
+            // Inscrire sur le backend pour obtenir le vrai ID + token
+            final result = await HayaApiService.inscrireUtilisateur(
+              prenom: UserManager.prenom,
+              telephone: UserManager.telephone,
+            );
+            if (result != null) {
+              UserManager.id = result['id'] ?? 0;
+              HayaApiService.utilisateurId = UserManager.id;
+              UserManager.token = HayaApiService.token;
+            }
             await UserManager.sauvegarder();
-            _inscrireBackend();
             if (!mounted) return;
             Navigator.pushAndRemoveUntil(
               context,
@@ -119,20 +175,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _inscrireBackend() async {
-    try {
-      final result = await HayaApiService.inscrireUtilisateur(
-        prenom: UserManager.prenom,
-        telephone: UserManager.telephone,
-      );
-      if (result != null) {
-        UserManager.id = result['id'] ?? 1;
-        HayaApiService.utilisateurId = UserManager.id;
-        await UserManager.sauvegarder();
-      }
-    } catch (_) {}
   }
 
   // ─── CONNEXION — utilisateur existant ─────────────────
@@ -143,41 +185,58 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       setState(() => _erreur = 'Entrez un numéro à 8 chiffres.');
       return;
     }
-    // Vérifier si ce numéro correspond au compte local
-    if (UserManager.id == 0 || UserManager.telephone != tel || !PinManager.pinDefini) {
-      setState(() => _erreurConnexion = true);
+
+    // ── Même appareil : PIN défini → PIN direct ──
+    // On vérifie seulement que le PIN existe sur cet appareil.
+    // Le numéro tapé est envoyé au backend pour récupérer le bon compte.
+    if (PinManager.pinDefini) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PinScreen(
+            titre: 'Ton PIN',
+            sousTitre: 'Entre ton PIN pour accéder à Haya.',
+            modeDefinition: false,
+            onSuccess: (_) async {
+              final prenomCache = UserManager.prenom.isNotEmpty
+                  ? UserManager.prenom
+                  : 'Utilisateur';
+              final result = await HayaApiService.inscrireUtilisateur(
+                prenom: prenomCache,
+                telephone: tel,
+              );
+              if (result != null) {
+                UserManager.telephone = tel;
+                UserManager.prenom = result['prenom'] ?? prenomCache;
+                UserManager.nom = result['nom'] ?? '';
+                UserManager.id = result['id'] ?? UserManager.id;
+                HayaApiService.utilisateurId = UserManager.id;
+                UserManager.token = HayaApiService.token;
+                await UserManager.sauvegarder();
+                await appliquerNumeros(result);
+              }
+              if (!mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MainScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ),
+      );
       return;
     }
-    // Numéro reconnu → demander le PIN
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PinScreen(
-          titre: 'Ton PIN',
-          sousTitre: 'Entre ton PIN pour accéder à Haya.',
-          modeDefinition: false,
-          onSuccess: (_) async {
-            // Récupérer le token en arrière-plan
-            final result = await HayaApiService.inscrireUtilisateur(
-              prenom: UserManager.prenom,
-              telephone: UserManager.telephone,
-            );
-            if (result != null) {
-              UserManager.id = result['id'] ?? UserManager.id;
-              HayaApiService.utilisateurId = UserManager.id;
-              UserManager.token = HayaApiService.token;
-              await UserManager.sauvegarder();
-            }
-            if (!mounted) return;
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const MainScreen()),
-              (route) => false,
-            );
-          },
-        ),
-      ),
-    );
+
+    // ── Nouvel appareil : pas de PIN → OTP requis ──
+    setState(() {
+      _modeConnexionOTP = true;
+      _phoneCtrl.text = tel;
+      _telSauvegarde = tel;
+      _etape = 3;
+      _otpEnvoye = false;
+      _erreur = '';
+    });
   }
 
   // ─── BUILD ────────────────────────────────────────────
@@ -214,8 +273,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Text("Envoie. C'est parti.",
             style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 16)),
         const Spacer(flex: 2),
-        _FeatureRow(icon: Icons.swap_horiz_rounded, titre: 'Cross-opérateur',
-            sous: 'Envoie vers Tmoney ou Flooz, peu importe ton opérateur.'),
+        _FeatureRow(icon: Icons.link_rounded, titre: 'Paiement sans app',
+            sous: 'Le destinataire paie via un lien web, sans télécharger Haya.'),
         const SizedBox(height: 20),
         _FeatureRow(icon: Icons.link_rounded, titre: 'Demande de paiement',
             sous: 'Partage un lien, le destinataire paie en 1 clic.'),
@@ -300,7 +359,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       Text('Ce nom apparaîtra sur tes demandes de paiement.',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 14)),
       const SizedBox(height: 40),
-      _Champ(label: 'Nom complet ou entreprise', hint: 'Koami Azanleko',
+      _Champ(label: 'Nom complet ou entreprise', hint: 'Tapez votre nom ici',
           controller: _nomCtrl, onChanged: (_) => setState(() {})),
       if (valeur.isNotEmpty && !contientLettre)
         Padding(

@@ -1,10 +1,28 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(ssh -i \"%USERPROFILE%\\\\.ssh\\\\haya_vps\" root@153.75.245.36 \"mysql -uroot -pacfbe0e8070839d0 haya -e 'ALTER TABLE demandes_paiement MODIFY montant BIGINT NOT NULL; ALTER TABLE transactions MODIFY montant BIGINT NOT NULL;'\")",
+      "Bash(flutter pub *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(dir c:\\\\Users\\\\flexix\\\\Desktop\\\\haya-backend\\\\*.js /b)",
+      "Bash(ssh root@vps3372617 \"cd /root/haya-backend && pm2 restart haya-backend && pm2 logs haya-backend --lines 5 --nostream\")",
+      "Bash(scp \"c:/Users/flexix/Desktop/haya-backend/index.js\" root@153.75.245.36:/root/haya-backend/index.js)",
+      "Bash(scp \"c:/Users/flexix/Desktop/haya-backend/controllers/payController.js\" root@153.75.245.36:/root/haya-backend/controllers/payController.js)",
+      "Bash(scp -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no \"c:/Users/flexix/Desktop/haya-backend/controllers/payController.js\" root@153.75.245.36:/root/haya-backend/controllers/payController.js)",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"cat /root/haya-backend/.env\")",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"mysql -u root -pacfbe0e8070839d0 haya -e 'SELECT reference, telephone_destinataire, montant, objet, statut, cree_le FROM demandes_paiement ORDER BY cree_le DESC LIMIT 10;'\")",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"mysql -u root -pacfbe0e8070839d0 haya -e 'SELECT id, prenom, nom, telephone, num_tmoney, num_flooz FROM users ORDER BY id DESC LIMIT 15;'\")",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"mysql -u root -pacfbe0e8070839d0 haya -e 'SELECT reference, telephone_destinataire, montant, objet, statut, cree_le FROM demandes_paiement WHERE telephone_destinataire = \\\\\"99248282\\\\\" ORDER BY cree_le DESC;'\")",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"mysql -u root -pacfbe0e8070839d0 haya -e 'SELECT reference, telephone_destinataire, montant, objet, statut, cree_le FROM demandes_paiement WHERE telephone_destinataire = \\\\\"99248282\\\\\" AND statut = \\\\\"en_attente\\\\\";'\")",
+      "Bash(ssh -i \"c:/Users/flexix/.ssh/haya_vps\" -o StrictHostKeyChecking=no root@153.75.245.36 \"mysql -u root -pacfbe0e8070839d0 haya -e 'SELECT d.reference, d.telephone_destinataire, d.montant, d.objet, d.statut, d.cree_le, u.prenom, u.telephone as tel_exp FROM demandes_paiement d LEFT JOIN users u ON d.expediteur_id = u.id WHERE u.telephone = \\\\\"90137411\\\\\" ORDER BY d.cree_le DESC LIMIT 5;'\")"
+    ],
     "additionalDirectories": [
       "c:\\Users\\flexix\\Desktop\\haya-backend\\controllers",
       "c:\\Users\\flexix\\Desktop\\haya-backend\\routes",
       "c:\\Users\\flexix\\Desktop\\haya-backend",
-      "c:\\Users\\flexix\\Desktop"
+      "c:\\Users\\flexix\\Desktop",
+      "c:\\Users\\flexix\\.claude\\projects\\c--Users-flexix-Desktop-haya\\memory"
     ]
   }
 }

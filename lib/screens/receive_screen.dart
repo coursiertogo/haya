@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../constants.dart';
 import '../services/managers.dart';
 
@@ -10,12 +11,24 @@ class ReceiveScreen extends StatefulWidget {
 }
 
 class _ReceiveScreenState extends State<ReceiveScreen> {
-  String _op = 'tmoney';
-  String get _num => _op == 'tmoney' ? '90123456' : '94123456';
+  String _op = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Sélectionner l'opérateur par défaut selon les numéros enregistrés
+    if (NumerosManager.tmoney.isNotEmpty) {
+      _op = 'tmoney';
+    } else if (NumerosManager.flooz.isNotEmpty) {
+      _op = 'flooz';
+    }
+  }
+
+  String get _num => _op == 'tmoney'
+      ? NumerosManager.tmoney
+      : NumerosManager.flooz;
   String get _nomOp =>
       _op == 'tmoney' ? 'Mixx by Yas (Tmoney)' : 'Flooz (Moov Africa)';
-  String _msg() =>
-      'Envoie-moi de l\'argent sur Haya !\n\nNom : ${UserManager.nomComplet}\nNumero $_nomOp : +228 $_num\n\nTelecharge Haya : https://play.google.com/store/apps/details?id=com.flexix.haya';
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +45,36 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500))),
-      body: SingleChildScrollView(
+      body: _op.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.phone_android, size: 56, color: kOrange),
+                  const SizedBox(height: 16),
+                  Text('Aucun numéro enregistré',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600,
+                          color: kTextCtx(context))),
+                  const SizedBox(height: 8),
+                  Text('Ajoute tes numéros Tmoney/Flooz dans Paramètres.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: kSubtextCtx(context))),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(backgroundColor: kOrange,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    child: const Text('Aller dans Paramètres',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ]),
+              ),
+            )
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(children: [
+          // Onglets opérateurs — seulement ceux enregistrés
+          if (NumerosManager.tmoney.isNotEmpty && NumerosManager.flooz.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -87,13 +127,24 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                             : const Color(0xFF854F0B))),
               ),
               const SizedBox(height: 20),
-              CustomPaint(
-                  size: const Size(200, 200),
-                  painter: _QRCodePainter(
-                      data: '+228$_num',
-                      color: _op == 'tmoney'
-                          ? const Color(0xFF3C3489)
-                          : const Color(0xFF854F0B))),
+              QrImageView(
+                data: 'haya://send?numero=$_num&operateur=$_op',
+                version: QrVersions.auto,
+                size: 200,
+                backgroundColor: Colors.white,
+                eyeStyle: QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: _op == 'tmoney'
+                      ? const Color(0xFF3C3489)
+                      : const Color(0xFF854F0B),
+                ),
+                dataModuleStyle: QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: _op == 'tmoney'
+                      ? const Color(0xFF3C3489)
+                      : const Color(0xFF854F0B),
+                ),
+              ),
               const SizedBox(height: 20),
               Text('+228 $_num',
                   style: TextStyle(
@@ -103,8 +154,17 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                       color: kTextCtx(context))),
               const SizedBox(height: 4),
               Text(UserManager.nomComplet,
-                  style: const TextStyle(
-                      fontSize: 14, color: Colors.grey)),
+                  style: const TextStyle(fontSize: 14, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                    color: kOrange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20)),
+                child: const Text('Scanner avec Haya pour payer',
+                    style: TextStyle(fontSize: 11, color: kOrange,
+                        fontWeight: FontWeight.w500)),
+              ),
             ]),
           ),
           const SizedBox(height: 24),
@@ -122,48 +182,12 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                         borderRadius: BorderRadius.circular(10))));
               },
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copier le numero',
+              label: const Text('Copier le numéro',
                   style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w500)),
               style: ElevatedButton.styleFrom(
                   backgroundColor: kNuit,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () => partagerWhatsApp(_msg()),
-              icon: const Icon(Icons.chat, size: 18),
-              label: const Text('Partager via WhatsApp',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500)),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: () => partagerSMS(_msg()),
-              icon: const Icon(Icons.sms_outlined,
-                  size: 18, color: kOrange),
-              label: const Text('Partager via SMS',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: kOrange)),
-              style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: kOrange),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12))),
             ),
@@ -205,50 +229,3 @@ class _OperateurTab extends StatelessWidget {
       );
 }
 
-class _QRCodePainter extends CustomPainter {
-  final String data;
-  final Color color;
-  const _QRCodePainter({required this.data, required this.color});
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = color;
-    final bg = Paint()..color = Colors.white;
-    final c = size.width / 21;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bg);
-    final hash =
-        data.codeUnits.fold(0, (a, b) => (a * 31 + b) & 0xFFFFFF);
-    void corner(double x, double y) {
-      canvas.drawRect(Rect.fromLTWH(x * c, y * c, 7 * c, 7 * c), p);
-      canvas.drawRect(
-          Rect.fromLTWH((x + 1) * c, (y + 1) * c, 5 * c, 5 * c), bg);
-      canvas.drawRect(
-          Rect.fromLTWH((x + 2) * c, (y + 2) * c, 3 * c, 3 * c), p);
-    }
-
-    corner(0, 0);
-    corner(14, 0);
-    corner(0, 14);
-    for (int i = 0; i < 21; i++) {
-      for (int j = 0; j < 21; j++) {
-        if ((i < 8 && j < 8) || (i > 12 && j < 8) || (i < 8 && j > 12)) {
-          continue;
-        }
-        if (i == 6 || j == 6) {
-          if ((i + j) % 2 == 0) {
-            canvas.drawRect(
-                Rect.fromLTWH(i * c + 1, j * c + 1, c - 2, c - 2), p);
-          }
-          continue;
-        }
-        if ((hash >> ((i * 21 + j) % 24)) & 1 == 1) {
-          canvas.drawRect(
-              Rect.fromLTWH(i * c + 1, j * c + 1, c - 2, c - 2), p);
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_QRCodePainter old) =>
-      old.data != data || old.color != color;
-}

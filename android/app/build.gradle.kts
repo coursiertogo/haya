@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.flexix.haya"
+    namespace = "tg.haya.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.flexix.haya"
+        applicationId = "tg.haya.mobile"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

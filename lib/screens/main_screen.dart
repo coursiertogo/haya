@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import 'home_screen.dart';
-import 'demandes_screen.dart';
-import 'history_screen.dart';
-import 'profile_screen.dart';
+import 'mes_demandes_screen.dart';
+import 'payment_request_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -13,50 +12,123 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  late final List<Widget> _screens;
 
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      HomeScreen(onGoToProfile: () => changerOnglet(3)),
-      const DemandesScreen(),
-      const HistoryScreen(),
-      const ProfileScreen(),
-    ];
-  }
-
-  void changerOnglet(int index) {
-    setState(() => _currentIndex = index);
-  }
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const MesDemandesScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: kOrange,
-        unselectedItemColor: isDark ? Colors.white38 : Colors.grey,
-        backgroundColor: isDark ? kCardDark : Colors.white,
-        currentIndex: _currentIndex,
-        selectedIconTheme:
-            const IconThemeData(color: kOrange, size: 26),
-        unselectedIconTheme: IconThemeData(
-            color: isDark ? Colors.white38 : Colors.grey, size: 22),
-        onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined), label: 'Accueil'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.request_page_outlined), label: 'Demandes'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.history), label: 'Activité'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profil'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: kNuit,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 12,
+                offset: const Offset(0, -2)),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                // Accueil
+                _NavItem(
+                  onTap: () => setState(() => _currentIndex = 0),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.home_outlined,
+                        size: 24,
+                        color: _currentIndex == 0
+                            ? kOrange
+                            : Colors.white.withValues(alpha: 0.5)),
+                    const SizedBox(height: 4),
+                    Text('Accueil',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _currentIndex == 0
+                                ? kOrange
+                                : Colors.white.withValues(alpha: 0.5))),
+                  ]),
+                ),
+
+                // Haya — bouton action central
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const PaymentRequestScreen())),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                          color: kOrange,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                                color: kOrange.withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4))
+                          ]),
+                      child: const Center(
+                        child: Text('⬆',
+                            style: TextStyle(fontSize: 20, color: Colors.white,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Haya',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: kOrange)),
+                  ]),
+                ),
+
+                // Demandes
+                _NavItem(
+                  onTap: () => setState(() => _currentIndex = 1),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.receipt_long_outlined,
+                        size: 24,
+                        color: _currentIndex == 1
+                            ? kOrange
+                            : Colors.white.withValues(alpha: 0.5)),
+                    const SizedBox(height: 4),
+                    Text('Demandes',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _currentIndex == 1
+                                ? kOrange
+                                : Colors.white.withValues(alpha: 0.5))),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
+}
+
+class _NavItem extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+  const _NavItem({required this.onTap, required this.child});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: child,
+        ),
+      );
 }

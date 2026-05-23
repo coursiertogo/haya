@@ -24,52 +24,62 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _chargerTransactions();
   }
 
+  Map<String, dynamic> _formatTx(Map t, bool isOut) {
+    final num = isOut
+        ? t['telephone_destinataire']?.toString() ?? ''
+        : t['expediteur_id']?.toString() ?? '';
+    final nomAff = isOut
+        ? '+228 ${t['telephone_destinataire'] ?? ''}'
+        : (t['nom_expediteur']?.toString().trim().isNotEmpty == true
+            ? t['nom_expediteur']
+            : '+228 ${t['expediteur_id'] ?? ''}');
+    final initiales = nomAff.length >= 2
+        ? nomAff.substring(0, 2).toUpperCase()
+        : 'TX';
+    final montant =
+        (double.tryParse(t['montant']?.toString() ?? '0') ?? 0).toInt();
+    final op = (t['operateur'] ?? '').toString();
+    final dateStr = t['cree_le']?.toString() ?? '';
+    DateTime dv = DateTime.now();
+    try { dv = DateTime.parse(dateStr); } catch (_) {}
+    final diff = DateTime.now().difference(dv);
+    String dateAff;
+    if (diff.inDays == 0) {
+      dateAff = 'Auj. ${dv.hour.toString().padLeft(2, '0')}:${dv.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      dateAff = 'Hier';
+    } else {
+      dateAff = '${dv.day.toString().padLeft(2, '0')}/${dv.month.toString().padLeft(2, '0')}';
+    }
+    final montantFmt = montant.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return {
+      'i': initiales,
+      'nom': nomAff,
+      'op': op.isNotEmpty ? op[0].toUpperCase() + op.substring(1) : 'Mobile',
+      'date': dateAff,
+      'm': isOut ? '-$montantFmt' : '+$montantFmt',
+      'mv': montant,
+      'dv': dv,
+      'out': isOut,
+      'ci': 0,
+      'num': num,
+      'ref': t['reference'] ?? '',
+    };
+  }
+
   Future<void> _chargerTransactions() async {
     setState(() => _chargement = true);
     try {
-      final data = await HayaApiService.getHistorique();
-      setState(() {
-        _txs = data.map((t) {
-          final num = t['telephone_destinataire']?.toString() ?? '';
-          final initiales =
-              num.length >= 2 ? num.substring(0, 2).toUpperCase() : 'TX';
-          final montant =
-              (double.tryParse(t['montant']?.toString() ?? '0') ?? 0).toInt();
-          final op = (t['operateur'] ?? '').toString();
-          final dateStr = t['cree_le']?.toString() ?? '';
-          DateTime dv = DateTime.now();
-          try {
-            dv = DateTime.parse(dateStr);
-          } catch (_) {}
-          final now = DateTime.now();
-          String dateAff;
-          final diff = now.difference(dv);
-          if (diff.inDays == 0) {
-            dateAff =
-                'Auj. ${dv.hour.toString().padLeft(2, '0')}:${dv.minute.toString().padLeft(2, '0')}';
-          } else if (diff.inDays == 1) {
-            dateAff = 'Hier';
-          } else {
-            dateAff =
-                '${dv.day.toString().padLeft(2, '0')}/${dv.month.toString().padLeft(2, '0')}';
-          }
-          return {
-            'i': initiales,
-            'nom': '+228 $num',
-            'op': op.isNotEmpty
-                ? op[0].toUpperCase() + op.substring(1)
-                : 'Mobile',
-            'date': dateAff,
-            'm': '-${montant.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
-            'mv': montant,
-            'dv': dv,
-            'out': true,
-            'ci': 0,
-            'num': num,
-            'ref': t['reference'] ?? '',
-          };
-        }).toList();
-      });
+      final envoyes = await HayaApiService.getHistorique();
+      final recus = await HayaApiService.getHistoriqueRecus();
+      final tout = [
+        ...envoyes.map((t) => _formatTx(t, true)),
+        ...recus.map((t) => _formatTx(t, false)),
+      ];
+      tout.sort((a, b) =>
+          (b['dv'] as DateTime).compareTo(a['dv'] as DateTime));
+      setState(() => _txs = tout);
     } catch (_) {
     } finally {
       if (mounted) setState(() => _chargement = false);
@@ -365,11 +375,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(children: [
             _StatCard(
-                'Total envoyé',
-                'FCFA ${_txs.where((t) => t['out'] == true).fold(0, (s, t) => s + (t['mv'] as int)).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
+                'Envoyé',
+                'FCFA ${_filtered.where((t) => t['out'] == true).fold(0, (s, t) => s + (t['mv'] as int)).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
                 kRouge),
             const SizedBox(width: 10),
-            _StatCard('Transactions', '${_txs.length}', kOrange),
+            _StatCard(
+                'Reçu',
+                'FCFA ${_filtered.where((t) => t['out'] == false).fold(0, (s, t) => s + (t['mv'] as int)).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')}',
+                kVert),
           ]),
         ),
         Expanded(

@@ -1,8 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import '../constants.dart';
-import '../services/managers.dart';
 import '../services/haya_api_service.dart';
 
 class DemandesScreen extends StatefulWidget {
@@ -22,20 +19,9 @@ class _DemandesScreenState extends State<DemandesScreen> {
   }
 
   Future<void> _charger() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${HayaApiService.baseUrl}/demandes/${UserManager.id}'),
-      ).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _demandes = List<Map<String, dynamic>>.from(data['demandes']);
-          _chargement = false;
-        });
-        return;
-      }
-    } catch (_) {}
-    setState(() => _chargement = false);
+    setState(() => _chargement = true);
+    final data = await HayaApiService.getDemandesEnvoyees();
+    if (mounted) setState(() { _demandes = data; _chargement = false; });
   }
 
   String _formatMontant(dynamic m) {
@@ -48,10 +34,8 @@ class _DemandesScreenState extends State<DemandesScreen> {
     if (d == null) return '';
     try {
       final dt = DateTime.parse(d).toLocal();
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) { return ''; }
   }
 
   Color _statutColor(String statut) {
@@ -84,11 +68,12 @@ class _DemandesScreenState extends State<DemandesScreen> {
             : null,
         automaticallyImplyLeading: false,
         title: const Text('Mes demandes',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+            style: TextStyle(color: Colors.white, fontSize: 16,
+                fontWeight: FontWeight.w500)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () { setState(() => _chargement = true); _charger(); },
+            onPressed: _charger,
           )
         ],
       ),
@@ -96,13 +81,15 @@ class _DemandesScreenState extends State<DemandesScreen> {
           ? const Center(child: CircularProgressIndicator(color: kOrange))
           : _demandes.isEmpty
               ? Center(
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey.shade300),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                    Icon(Icons.receipt_long_outlined, size: 64,
+                        color: Colors.grey.shade300),
                     const SizedBox(height: 16),
                     Text('Aucune demande envoyée',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
-                  ]),
-                )
+                        style: TextStyle(color: Colors.grey.shade500,
+                            fontSize: 16)),
+                  ]))
               : RefreshIndicator(
                   onRefresh: _charger,
                   color: kOrange,
@@ -120,60 +107,63 @@ class _DemandesScreenState extends State<DemandesScreen> {
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: kBorderCtx(context)),
                         ),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                           Row(children: [
                             Expanded(
                               child: Text(d['objet'] ?? '',
-                                  style: TextStyle(
-                                      fontSize: 15,
+                                  style: TextStyle(fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                       color: kTextCtx(context))),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _statutColor(statut).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
+                                  color: _statutColor(statut).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20)),
                               child: Text(_statutLabel(statut),
-                                  style: TextStyle(
-                                      fontSize: 12,
+                                  style: TextStyle(fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: _statutColor(statut))),
                             ),
                           ]),
                           const SizedBox(height: 8),
                           Text('FCFA ${_formatMontant(d['montant'])}',
-                              style: TextStyle(
-                                  fontSize: 22,
+                              style: TextStyle(fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                   color: kTextCtx(context))),
                           const SizedBox(height: 6),
                           Row(children: [
-                            Icon(Icons.phone_android, size: 13, color: kSubtextCtx(context)),
+                            Icon(Icons.phone_android, size: 13,
+                                color: kSubtextCtx(context)),
                             const SizedBox(width: 4),
                             Text('+228 ${d['telephone_destinataire']}',
-                                style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
+                                style: TextStyle(fontSize: 12,
+                                    color: kSubtextCtx(context))),
                             const SizedBox(width: 12),
-                            Icon(Icons.calendar_today_outlined, size: 13, color: kSubtextCtx(context)),
+                            Icon(Icons.calendar_today_outlined, size: 13,
+                                color: kSubtextCtx(context)),
                             const SizedBox(width: 4),
                             Text(_formatDate(d['cree_le']),
-                                style: TextStyle(fontSize: 12, color: kSubtextCtx(context))),
+                                style: TextStyle(fontSize: 12,
+                                    color: kSubtextCtx(context))),
                           ]),
                           if (statut == 'paye' && d['paye_le'] != null) ...[
                             const SizedBox(height: 4),
                             Row(children: [
-                              const Icon(Icons.check_circle_outline, size: 13, color: kVert),
+                              const Icon(Icons.check_circle_outline,
+                                  size: 13, color: kVert),
                               const SizedBox(width: 4),
                               Text('Payé le ${_formatDate(d['paye_le'])}',
-                                  style: const TextStyle(fontSize: 12, color: kVert)),
+                                  style: const TextStyle(fontSize: 12,
+                                      color: kVert)),
                             ]),
                           ],
                         ]),
                       );
                     },
-                  ),
-                ),
+                  )),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../services/taux_change_service.dart';
 import '../services/managers.dart';
+import '../services/auth_utils.dart';
+import '../services/haya_api_service.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
 import 'lock_screen.dart';
@@ -23,6 +25,16 @@ class _SplashScreenState extends State<SplashScreen>
     await NumerosManager.charger();
     await UserManager.charger();
     await ContactsManager.charger();
+    await ThemeManager.instance.charger();
+    if (UserManager.token.isNotEmpty &&
+        NumerosManager.tmoney.isEmpty &&
+        NumerosManager.flooz.isEmpty) {
+      final nums = await HayaApiService.recupererNumeros();
+      if (nums != null) {
+        if ((nums['tmoney'] ?? '').isNotEmpty) await NumerosManager.setTmoney(nums['tmoney']!);
+        if ((nums['flooz'] ?? '').isNotEmpty) await NumerosManager.setFlooz(nums['flooz']!);
+      }
+    }
   }
 
   @override
@@ -37,7 +49,9 @@ class _SplashScreenState extends State<SplashScreen>
     _ctrl.forward();
     _initialiser().then((_) => Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
-        if (UserManager.id != 0 && PinManager.pinDefini) {
+        final aToken = UserManager.token.isNotEmpty;
+        if (UserManager.id != 0 && aToken && PinManager.pinDefini) {
+          // Session active + PIN → MainScreen puis LockScreen par-dessus
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const MainScreen()),
@@ -48,12 +62,25 @@ class _SplashScreenState extends State<SplashScreen>
               builder: (_) => LockScreen(onDeverrouille: () {}),
             ),
           );
-        } else if (UserManager.id != 0) {
+        } else if (UserManager.id != 0 && aToken) {
+          // Session active sans PIN → MainScreen directement
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const MainScreen()),
           );
+        } else if (UserManager.id != 0 && PinManager.pinDefini) {
+          // Token expiré mais PIN défini → LockScreen renouvelle le token
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LockScreen(
+                onDeverrouille: () {},
+                naviguerApres: reconnecterEtOuvrir,
+              ),
+            ),
+          );
         } else {
+          // Nouveau utilisateur ou données absentes → Onboarding complet
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const OnboardingScreen()),

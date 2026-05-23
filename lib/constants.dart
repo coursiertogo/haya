@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+// ─── FEATURE FLAGS ───────────────────────────────────────
+// Mettre à true quand cross-opérateur FeexPay est résolu
+const bool kEnvoiActif = false;
+const bool kScannerActif = false;
+const bool kRecevoirActif = false;
 
 // ─── THEME MANAGER ───────────────────────────────────────
 class ThemeManager extends ChangeNotifier {
@@ -7,38 +14,54 @@ class ThemeManager extends ChangeNotifier {
   static ThemeManager get instance => _instance;
   ThemeManager._();
 
-  bool _isDark = true;
+  bool _isDark = false;
   bool get isDark => _isDark;
 
-  void toggle() {
+  Future<void> charger() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isDark = prefs.getBool('dark_mode') ?? false;
+    notifyListeners();
+  }
+
+  Future<void> toggle() async {
     _isDark = !_isDark;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', _isDark);
     notifyListeners();
   }
 }
 
-// ─── COULEURS ────────────────────────────────────────────
+// ─── COULEURS HAYA ───────────────────────────────────────
 const kNuit     = Color(0xFF0D0D2B);
 const kOrange   = Color(0xFFF97316);
 const kVert     = Color(0xFF1D9E75);
 const kRouge    = Color(0xFFE24B4A);
 
-// Mode clair — Blanc Pur
-const kFond     = Color(0xFFF8F9FA);
-const kCardLight = Color(0xFFFFFFFF);
+// Thème Haya — fond clair violacé + header bleu
+const kBleu      = Color(0xFF5568D9); // header / nav / accents
+const kBleuCard  = Color(0xFF6678E5); // cards header
+const kBleuDark  = Color(0xFF4457C8); // éléments header sombres
+const kBleuDeep  = Color(0xFF3344B8); // nav bar
 
-// Mode sombre — Bleu Nuit amélioré
-const kFondDark  = Color(0xFF080818);
-const kCardDark  = Color(0xFF141430);
-const kInputDark = Color(0xFF1E1E45);
-const kBordDark  = Color(0xFF35356A);
-const kSubDark   = Color(0xFF9999BB);
+// Fond principal clair
+const kFond      = Color(0xFFF5F4FF); // fond écrans
+const kCardLight = Color(0xFFFFFFFF); // cards
+const kCardDark  = Color(0xFFEEEDFB); // cards légèrement colorées
 
-Color kFondCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kFondDark   : kFond;
-Color kCardCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kCardDark   : kCardLight;
-Color kTextCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF111827);
-Color kSubtextCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? kSubDark    : const Color(0xFF6B7280);
-Color kBorderCtx(BuildContext context)  => Theme.of(context).brightness == Brightness.dark ? kBordDark   : const Color(0xFFE5E7EB);
-Color kInputCtx(BuildContext context)   => Theme.of(context).brightness == Brightness.dark ? kInputDark  : const Color(0xFFF3F4F6);
+// Couleurs mode sombre
+const kFondDarkMode  = Color(0xFF0D1226);
+const kCardDarkMode  = Color(0xFF1A2040);
+const kInputDarkMode = Color(0xFF242B4E);
+const kBordDarkMode  = Color(0xFF2E3660);
+
+// Fonctions contextuelles — clair / sombre
+Color kFondCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kFondDarkMode  : kFond;
+Color kCardCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? kCardDarkMode  : kCardLight;
+Color kTextCtx(BuildContext context)    => Theme.of(context).brightness == Brightness.dark ? Colors.white   : const Color(0xFF111827);
+Color kSubtextCtx(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? const Color(0xFF9999BB) : const Color(0xFF6B7280);
+Color kBorderCtx(BuildContext context)  => Theme.of(context).brightness == Brightness.dark ? kBordDarkMode  : const Color(0xFFE5E7EB);
+Color kInputCtx(BuildContext context)   => Theme.of(context).brightness == Brightness.dark ? kInputDarkMode : const Color(0xFFF3F4F6);
+const kFondDark = kFond;
 
 const avatarColors = [
   Color(0xFFEEEDFE), Color(0xFFD7F3EA), Color(0xFFFAEEDA),
@@ -60,6 +83,24 @@ String detectOperateur(String numero) {
   if (tmoneySuffixes.contains(prefix)) return 'tmoney';
   if (floozPrefixes.contains(prefix)) return 'flooz';
   return 'inconnu';
+}
+
+// ─── LOGO OPÉRATEUR ──────────────────────────────────────
+class OpLogo extends StatelessWidget {
+  final String operateur; // 'tmoney' ou 'flooz'
+  final double height;
+  const OpLogo({super.key, required this.operateur, this.height = 22});
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = operateur == 'tmoney'
+        ? 'assets/logos/tmoney.png'
+        : 'assets/logos/moov.png';
+    return Image.asset(asset, height: height, fit: BoxFit.contain,
+        errorBuilder: (ctx, err, stack) => Text(
+            operateur == 'tmoney' ? 'Tmoney' : 'Flooz',
+            style: TextStyle(fontSize: height * 0.6, fontWeight: FontWeight.w600)));
+  }
 }
 
 // ─── PARTAGE ─────────────────────────────────────────────
