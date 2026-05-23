@@ -51,10 +51,12 @@ class _SendScreenState extends State<SendScreen> {
     if (widget.operateurInitial != null) _op = widget.operateurInitial!;
     if (widget.refInitial != null) _verifierStatutDemande();
     _initCompteSource();
-    // Si vient d'une demande (tout pré-rempli) → directement étape 3
-    if (widget.refInitial != null) _etape = 3;
-    // Si numéro pré-rempli mais pas de demande → étape 2 (choisir compte)
-    else if (widget.numeroInitial != null) _etape = 2;
+    // Si vient d'une demande OU si numéro+montant fournis → directement étape 3
+    if (widget.refInitial != null ||
+        (widget.numeroInitial != null && widget.montantInitial != null)) {
+      _etape = 3;
+    }
+    // Sinon on commence à l'étape 1 (montant), le numéro sera pré-rempli à l'étape 2
   }
 
   void _initCompteSource() {
