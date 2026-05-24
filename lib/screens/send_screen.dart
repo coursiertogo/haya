@@ -60,10 +60,10 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   void _initCompteSource() {
-    if (NumerosManager.flooz.isNotEmpty) {
-      _compteSource = 'flooz';
-    } else {
+    if (NumerosManager.tmoney.isNotEmpty) {
       _compteSource = 'tmoney';
+    } else if (NumerosManager.flooz.isNotEmpty) {
+      _compteSource = 'flooz';
     }
   }
 
