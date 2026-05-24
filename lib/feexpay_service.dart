@@ -132,22 +132,20 @@ class FeexPayService {
   }
 
   // ─── VÉRIFIER STATUT TRANSACTION ─────────────────────
+  // Utilise le backend comme oracle (webhook → Map en mémoire)
+  // L'API FeexPay directe retourne 404 en production
   static Future<String> verifierStatut(String transactionId) async {
     if (_modeSandbox) return 'SUCCESSFUL';
+    if (transactionId.isEmpty) return 'PENDING';
     try {
       final response = await http.get(
-        Uri.parse('https://api-v2.feexpay.me/api/transactions/public/$transactionId'),
-        headers: {'Authorization': 'Bearer $_apiKey'},
+        Uri.parse('https://haya.flexix.nl/api/tx-check/$transactionId'),
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final statut = (data['status'] ?? data['statut'] ?? '').toString().toUpperCase();
-        if (statut.contains('SUCCESS') || statut.contains('COMPLETED') || statut.contains('PAID')) {
-          return 'SUCCESSFUL';
-        }
-        if (statut.contains('FAIL') || statut.contains('CANCEL') || statut.contains('REJECT')) {
-          return 'FAILED';
-        }
+        final statut = (data['statut'] ?? '').toString();
+        if (statut == 'succes') return 'SUCCESSFUL';
+        if (statut == 'echec') return 'FAILED';
         return 'PENDING';
       }
     } catch (_) {}

@@ -60,7 +60,8 @@ class _SuccessScreenState extends State<SuccessScreen>
   }
 
   Future<void> _pollStatut() async {
-    const maxTentatives = 12;
+    // 24 tentatives × 5 sec = 2 minutes max
+    const maxTentatives = 24;
     for (int i = 0; i < maxTentatives; i++) {
       await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
@@ -73,14 +74,13 @@ class _SuccessScreenState extends State<SuccessScreen>
             reseau: widget.operateurDestinataire,
             reference: widget.referenceHaya,
           );
+          if (!mounted) return;
           if (!payout['success']) {
-            if (mounted) {
-              setState(() {
-                _statut = 'failed';
-                _erreurPayout = payout['message'] ?? '';
-              });
-              HapticFeedback.vibrate();
-            }
+            setState(() {
+              _statut = 'failed';
+              _erreurPayout = payout['message'] ?? '';
+            });
+            HapticFeedback.vibrate();
             return;
           }
         }
@@ -99,30 +99,11 @@ class _SuccessScreenState extends State<SuccessScreen>
         return;
       }
     }
-    if (widget.numeroDestinataire.isNotEmpty) {
-      final payout = await FeexPayService.payerDestinataire(
-        telephone: widget.numeroDestinataire,
-        montant: widget.montant,
-        reseau: widget.operateurDestinataire,
-        reference: widget.referenceHaya,
-      );
-      if (mounted && _statut == 'pending') {
-        if (payout['success']) {
-          setState(() => _statut = 'success');
-          if (widget.demandeRef != null) {
-            await HayaApiService.marquerDemandePaye(widget.demandeRef!);
-          }
-        } else {
-          setState(() {
-            _statut = 'failed';
-            _erreurPayout = payout['message'] ?? '';
-          });
-        }
-      }
-    } else if (mounted && _statut == 'pending') {
+    // Timeout : ne PAS déclencher le payout — la collection n'a pas été confirmée
+    if (mounted && _statut == 'pending') {
       setState(() {
         _statut = 'failed';
-        _erreurPayout = 'Impossible de confirmer le paiement. Vérifiez votre compte mobile money.';
+        _erreurPayout = 'Paiement non confirmé après 2 minutes. Si tu as accepté l\'USSD, vérifie ton solde mobile money.';
       });
       HapticFeedback.vibrate();
     }
