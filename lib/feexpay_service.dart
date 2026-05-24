@@ -147,6 +147,7 @@ class FeexPayService {
         final statut = (data['statut'] ?? '').toString();
         if (statut == 'succes') return 'SUCCESSFUL';
         if (statut == 'echec') return 'FAILED';
+        if (statut == 'payout_echec') return 'PAYOUT_FAILED';
         return 'PENDING';
       }
     } catch (_) {}

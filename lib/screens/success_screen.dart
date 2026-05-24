@@ -67,29 +67,22 @@ class _SuccessScreenState extends State<SuccessScreen>
       if (!mounted) return;
       final statut = await FeexPayService.verifierStatut(widget.transactionId);
       if (statut == 'SUCCESSFUL') {
-        if (widget.numeroDestinataire.isNotEmpty) {
-          final payout = await FeexPayService.payerDestinataire(
-            telephone: widget.numeroDestinataire,
-            montant: widget.montant,
-            reseau: widget.operateurDestinataire,
-            reference: widget.referenceHaya,
-          );
-          if (!mounted) return;
-          if (!payout['success']) {
-            setState(() {
-              _statut = 'failed';
-              _erreurPayout = payout['message'] ?? '';
-            });
-            HapticFeedback.vibrate();
-            return;
-          }
-        }
         if (mounted) {
           setState(() => _statut = 'success');
           HapticFeedback.heavyImpact();
           if (widget.demandeRef != null) {
             await HayaApiService.marquerDemandePaye(widget.demandeRef!);
           }
+        }
+        return;
+      }
+      if (statut == 'PAYOUT_FAILED') {
+        if (mounted) {
+          setState(() {
+            _statut = 'failed';
+            _erreurPayout = 'Collecte reçue mais le transfert vers le destinataire a échoué. Contacte le support Haya.';
+          });
+          HapticFeedback.vibrate();
         }
         return;
       }

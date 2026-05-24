@@ -181,6 +181,17 @@ class _SendScreenState extends State<SendScreen> {
     Navigator.pop(context);
     if (result['success']) {
       if (!mounted) return;
+      // Enregistrer le payout sur le backend avant que l'USSD arrive
+      final txId = result['transactionId'] ?? '';
+      if (txId.isNotEmpty && _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length == 8) {
+        HayaApiService.enregistrerPayout(
+          txId: txId,
+          telephone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          montant: _montant,
+          operateur: _op,
+          referenceHaya: ref,
+        );
+      }
       HayaApiService.enregistrerTransaction(
         telephone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''),
         montant: _montant,

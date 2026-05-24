@@ -224,6 +224,28 @@ class HayaApiService {
     }
   }
 
+  static Future<void> enregistrerPayout({
+    required String txId,
+    required String telephone,
+    required int montant,
+    required String operateur,
+    required String referenceHaya,
+  }) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/tx-register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'txId': txId,
+          'telephone': telephone,
+          'montant': montant,
+          'operateur': operateur,
+          'referenceHaya': referenceHaya,
+        }),
+      ).timeout(const Duration(seconds: 10));
+    } catch (_) {}
+  }
+
   static Future<bool> sauvegarderNumeros({required String tmoney, required String flooz}) async {
     if (token.isEmpty) return false;
     try {
