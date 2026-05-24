@@ -71,7 +71,8 @@ class FeexPayService {
       if (response.statusCode < 400) {
         // FeexPay peut nommer l'ID différemment selon la version
         final txId = (data['id'] ?? data['transactionId'] ??
-            data['transaction_id'] ?? data['uid'] ?? data['_id'] ?? '')
+            data['transaction_id'] ?? data['uid'] ?? data['_id'] ??
+            data['reference'] ?? '')
             .toString();
         return {
           'success': true,
