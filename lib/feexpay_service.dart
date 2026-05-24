@@ -2,22 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class FeexPayService {
-  // ─── CONFIGURATION ───────────────────────────────────
-  // ⚠️ Remplace par ta vraie clé API sandbox depuis le menu Développeurs
-  static const String _apiKey = 'fp_xJCr90csVp0ZjDOaslH2biMRuey7d0MbZDY2D6SmXKJM3tabayLKwLXseTfxaaws';
-  static const String _shopId = 'yl8mn0u9Lc0R7p6';
-
-  // URLs API FeexPay
-  static const String _urlTogocom =
-      'https://api-v2.feexpay.me/api/transactions/public/requesttopay/togocom_tg';
-  static const String _urlMoov =
-      'https://api-v2.feexpay.me/api/transactions/public/requesttopay/moov_tg';
-
   // MODE PRODUCTION
   static const bool _modeSandbox = false;
   static bool get modeSandbox => _modeSandbox;
 
-  // ─── INITIER UN PAIEMENT ─────────────────────────────
+  // ─── INITIER UN PAIEMENT (via backend VPS — IP whitelistée) ─────────────────
   static Future<Map<String, dynamic>> initierPaiement({
     required String telephone,
     required int montant,
@@ -37,48 +26,27 @@ class FeexPayService {
     }
 
     try {
-      // Choisir l'URL selon l'opérateur
-      final url = reseau == 'tmoney' ? _urlTogocom : _urlMoov;
-
-      // Numéro avec indicatif Togo
-      final numeroComplet = telephone.startsWith('228')
-          ? telephone
-          : '228$telephone';
-
       final response = await http
           .post(
-            Uri.parse(url),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
-            },
+            Uri.parse('https://haya.flexix.nl/api/collect'),
+            headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'phoneNumber': numeroComplet,
-              'amount': montant,
-              'shop': _shopId,
-              'first_name': prenom,
-              'last_name': nom,
+              'telephone': telephone,
+              'montant': montant,
+              'operateur': reseau,
+              'reference': reference,
+              'prenom': prenom,
+              'nom': nom,
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 35));
 
-      print('FEEXPAY STATUS: ${response.statusCode}');
-      print('FEEXPAY BODY: ${response.body}');
       final data = jsonDecode(response.body);
-
-      // FeexPay retourne 200, 201 ou 202 quand l'USSD est envoyé
-      // Tout code < 400 = transaction initiée (USSD envoyé au téléphone)
-      if (response.statusCode < 400) {
-        // FeexPay peut nommer l'ID différemment selon la version
-        final txId = (data['id'] ?? data['transactionId'] ??
-            data['transaction_id'] ?? data['uid'] ?? data['_id'] ??
-            data['reference'] ?? '')
-            .toString();
+      if (response.statusCode == 200 && data['success'] == true) {
         return {
           'success': true,
           'reference': data['reference'] ?? reference,
-          'transactionId': txId,
-          'rawResponse': data.toString(),
+          'transactionId': data['transactionId'] ?? '',
           'message': 'Confirme sur ton téléphone via le code USSD',
         };
       } else {
